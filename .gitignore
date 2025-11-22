@@ -1,0 +1,108 @@
+# ============================
+# Django & Python
+# ============================
+
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+
+# Django secret files
+*.env
+.env*
+*secret*
+secret.json
+
+# Local settings (do NOT commit)
+local_settings.py
+settings_local.py
+
+# Django SQLite database (if used for local dev)
+db.sqlite3
+db.sqlite3-journal
+
+# Media and static files (generated)
+media/
+staticfiles/
+static/
+
+# ============================
+# Virtual Environments
+# ============================
+
+venv/
+env/
+ENV/
+.venv/
+.env/
+pip-log.txt
+
+# Poetry
+.poetry/
+
+# ============================
+# OS Specific
+# ============================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ============================
+# IDEs / Editors
+# ============================
+
+# VSCode
+.vscode/
+.code-workspace
+
+# PyCharm / JetBrains
+.idea/
+*.iml
+
+# ============================
+# Logs & Cache
+# ============================
+
+*.log
+logs/
+*.pot
+*.mo
+node_modules/
+.cache/
+coverage.xml
+htmlcov/
+.build/
+dist/
+build/
+
+# ============================
+# Node / Build Tools
+# ============================
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================
+# Docker (optional)
+# ============================
+
+docker-compose.override.yml
+
+# ============================
+# Cloud / Backups
+# ============================
+
+*.bak
+*.backup
