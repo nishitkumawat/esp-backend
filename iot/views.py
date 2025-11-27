@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 import os
 
 
-TEST_OTP = "123456"  # OTP always 123456 (testing mode)
 logger = logging.getLogger(__name__)
 
 
@@ -899,3 +898,98 @@ def get_popup(request):
             "show": False,
             "error": str(e)
         }, status=500)
+
+# ================================================================
+#                 RESEND OTP - SIGNUP
+# ================================================================
+@csrf_exempt
+def resend_signup_otp(request):
+    if request.method != "POST":
+        return json_response(False, "POST required", status_code=405)
+
+    data, error = get_json(request)
+    if error:
+        return json_response(False, error, status_code=400)
+
+    user_id = data.get("user_id")
+    if not user_id:
+        return json_response(False, "user_id required", status_code=400)
+
+    try:
+        with connection.cursor() as cursor:
+            # Check pending user exists
+            cursor.execute(
+                "SELECT phone FROM iot_pending_users WHERE id=%s",
+                [user_id]
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                return json_response(False, "Pending user not found", status_code=404)
+
+            phone = row[0]
+
+            # Generate new OTP
+            otp = generate_otp()
+            expires_at = datetime.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
+
+            cursor.execute(
+                "INSERT INTO iot_otps (phone, otp, purpose, expires_at) VALUES (%s, %s, 'signup', %s)",
+                [phone, otp, expires_at]
+            )
+
+        # Send OTP
+        send_whatsapp_otp(phone, otp)
+
+        return json_response(True, "OTP resent successfully")
+
+    except Exception:
+        logger.exception("Resend signup OTP error for pending user %s", user_id)
+        return json_response(False, "Could not resend OTP", status_code=500)
+
+
+
+# ================================================================
+#                 RESEND OTP - FORGOT PASSWORD
+# ================================================================
+@csrf_exempt
+def resend_forgot_otp(request):
+    if request.method != "POST":
+        return json_response(False, "POST required", status_code=405)
+
+    data, error = get_json(request)
+    if error:
+        return json_response(False, error, status_code=400)
+
+    user_id = data.get("user_id")
+    if not user_id:
+        return json_response(False, "user_id required", status_code=400)
+
+    try:
+        with connection.cursor() as cursor:
+            # Get phone using user_id
+            cursor.execute("SELECT phone FROM iot_users WHERE id=%s", [user_id])
+            row = cursor.fetchone()
+
+            if not row:
+                return json_response(False, "User not found", status_code=404)
+
+            phone = row[0]
+
+            # Generate new OTP
+            otp = generate_otp()
+            expires_at = datetime.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
+
+            cursor.execute(
+                "INSERT INTO iot_otps (phone, otp, purpose, expires_at) VALUES (%s, %s, 'forgot', %s)",
+                [phone, otp, expires_at]
+            )
+
+        # Send OTP
+        send_whatsapp_otp(phone, otp)
+
+        return json_response(True, "OTP resent successfully")
+
+    except Exception:
+        logger.exception("Resend forgot OTP error for user %s", user_id)
+        return json_response(False, "Some error occurred", status_code=500)

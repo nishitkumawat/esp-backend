@@ -22,4 +22,7 @@ urlpatterns = [
     path("remove_access/", views.remove_access, name="iot-remove-access"),
     path("delete_device/", views.delete_device, name="iot-delete-device"),
     path("popup/", views.get_popup, name="iot-popup"),
+    path("resend_signup_otp/", views.resend_signup_otp, name="resend-signup-otp"),
+    path("resend_forgot_otp/", views.resend_forgot_otp, name="resend-forgot-otp"),
+    
 ]
