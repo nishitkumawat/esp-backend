@@ -870,3 +870,32 @@ def remove_access(request):
 
     return json_response(True, "Access removed")
 
+@csrf_exempt
+def get_popup(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT message, button_name, button_url
+                FROM iot_popup
+                WHERE is_active = 1
+                ORDER BY id DESC
+                LIMIT 1
+            """)
+            row = cursor.fetchone()
+
+        if row:
+            return JsonResponse({
+                "show": True,
+                "message": row[0],
+                "button_name": row[1],
+                "button_url": row[2],
+            }, status=200)
+
+        # No active popup
+        return JsonResponse({"show": False}, status=200)
+
+    except Exception as e:
+        return JsonResponse({
+            "show": False,
+            "error": str(e)
+        }, status=500)

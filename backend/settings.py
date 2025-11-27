@@ -18,7 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
-# In development allow all, in production require host names/IPs
+# Allow all in dev (Flutter calls backend directly)
 if DEBUG:
     ALLOWED_HOSTS = ["*"]
 else:
@@ -49,11 +49,11 @@ INSTALLED_APPS = [
 # Middleware
 # ----------------------------
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # must be on top
+    "corsheaders.middleware.CorsMiddleware",  # must be first
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",  # harmless for Flutter
+    "django.middleware.csrf.CsrfViewMiddleware",  # Safe for Flutter
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -74,11 +74,18 @@ CORS_ALLOW_HEADERS = [
     "user-agent",
 ]
 
-# CSRF not required for mobile apps but define properly
+# ----------------------------
+# CSRF Trusted Origins
+# ----------------------------
+# Flutter does not use CSRF, but Django system check requires valid URLs.
 if DEBUG:
-    CSRF_TRUSTED_ORIGINS = ["http://localhost", "http://*"]
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost",
+        "http://127.0.0.1"
+    ]
 else:
-    # Add your API domain(s) in env
+    # Add your Render domain in env:
+    # CSRF_TRUSTED_ORIGINS=https://your-app.onrender.com
     CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
 
 # ----------------------------
@@ -205,14 +212,14 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
 # ----------------------------
-# Add production-only security
+# Production-only Security
 # ----------------------------
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-    SECURE_HSTS_SECONDS = 31536000   # 1 year
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 

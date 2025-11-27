@@ -21,4 +21,5 @@ urlpatterns = [
     path("reject_access/", views.reject_access, name="iot-reject-access"),
     path("remove_access/", views.remove_access, name="iot-remove-access"),
     path("delete_device/", views.delete_device, name="iot-delete-device"),
+    path("popup/", views.get_popup, name="iot-popup"),
 ]
