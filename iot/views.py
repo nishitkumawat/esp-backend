@@ -474,18 +474,24 @@ def _has_device_access(user_id, device_id):
 @csrf_exempt
 def add_device(request):
     if request.method != "POST":
+        logger.warning("Invalid request method: %s", request.method)
         return json_response(False, "POST required", status_code=405)
 
-    data, error = get_json(request)
-    if error:
-        return json_response(False, error, status_code=400)
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        logger.info("Received add_device request with data: %s", data)
+    except Exception as e:
+        logger.error("Error parsing JSON: %s", str(e))
+        return json_response(False, "Invalid JSON data", status_code=400)
 
     missing = require_fields(data, ["user_id", "device_code"])
     if missing:
+        logger.warning("Missing required fields: %s", missing)
         return json_response(False, f"Missing required fields: {', '.join(missing)}", status_code=400)
 
     user_id = data["user_id"]
-    device_code = data["device_code"]
+    device_code = data["device_code"].strip().upper()  # Normalize device code
+    logger.info("Processing add_device for user_id: %s, device_code: %s", user_id, device_code)
 
     try:
         with connection.cursor() as cursor:
@@ -495,43 +501,63 @@ def add_device(request):
 
             if device:
                 device_id = device[0]
+                logger.info("Device exists with ID: %s", device_id)
+                
                 # Check if user already has access
-                if _has_device_access(user_id, device_id):
+                cursor.execute(
+                    "SELECT id FROM iot_user_devices WHERE user_id=%s AND device_id=%s",
+                    [user_id, device_id]
+                )
+                if cursor.fetchone():
+                    logger.warning("User %s already has access to device %s", user_id, device_id)
                     return json_response(False, "You already have access to this device", status_code=400)
-
+                
                 # Check if request already exists
                 cursor.execute(
                     "SELECT id FROM iot_device_access_requests WHERE device_id=%s AND requested_by_user_id=%s",
                     [device_id, user_id]
                 )
                 if cursor.fetchone():
+                    logger.warning("Duplicate request from user %s for device %s", user_id, device_id)
                     return json_response(False, "Request already pending", status_code=400)
 
                 # Create access request
-                cursor.execute(
-                    "INSERT INTO iot_device_access_requests (device_id, requested_by_user_id) VALUES (%s, %s)",
-                    [device_id, user_id],
-                )
-                return json_response(True, "Access request sent", device_id=device_id)
+                try:
+                    cursor.execute(
+                        "INSERT INTO iot_device_access_requests (device_id, requested_by_user_id) VALUES (%s, %s)",
+                        [device_id, user_id],
+                    )
+                    logger.info("Access request created for user %s to device %s", user_id, device_id)
+                    return json_response(True, "Access request sent", device_id=device_id)
+                except Exception as e:
+                    logger.error("Error creating access request: %s", str(e))
+                    return json_response(False, "Unable to create access request", status_code=500)
 
             # Device doesn't exist, create it
-            cursor.execute(
-                "INSERT INTO iot_devices (device_code, name, user_count) VALUES (%s, %s, %s)",
-                [device_code, f"Device {device_code[-4:]}", 1],
-            )
-            device_id = cursor.lastrowid
+            try:
+                cursor.execute(
+                    "INSERT INTO iot_devices (device_code, name, user_count) VALUES (%s, %s, %s)",
+                    [device_code, f"Device {device_code[-4:]}", 1],
+                )
+                device_id = cursor.lastrowid
+                logger.info("Created new device with ID: %s", device_id)
 
-            # Add user as admin
-            cursor.execute(
-                "INSERT INTO iot_user_devices (user_id, device_id, role) VALUES (%s, %s, 'admin')",
-                [user_id, device_id],
-            )
-            return json_response(True, "Device created and you are now the admin", device_id=device_id)
+                # Add user as admin
+                cursor.execute(
+                    "INSERT INTO iot_user_devices (user_id, device_id, role) VALUES (%s, %s, 'admin')",
+                    [user_id, device_id],
+                )
+                logger.info("Added user %s as admin to device %s", user_id, device_id)
+                return json_response(True, "Device created and you are now the admin", device_id=device_id)
+
+            except Exception as e:
+                logger.error("Error creating new device: %s", str(e))
+                return json_response(False, "Unable to create new device", status_code=500)
 
     except Exception as e:
-        logger.exception("Add device error for user %s device_code %s: %s", user_id, device_code, str(e))
+        logger.exception("Unexpected error in add_device: %s", str(e))
         return json_response(False, "Unable to process request", status_code=500)
-
+    
 def my_devices(request):
     if request.method not in ("GET", "POST"):
         return json_response(False, "GET or POST required", status_code=405)
