@@ -8,9 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from dotenv import load_dotenv
 import os
 
-
 logger = logging.getLogger(__name__)
-
 
 load_dotenv()
 
@@ -71,7 +69,6 @@ def json_response(status: bool, message: str, status_code: int = 200, **extra):
         payload.update(extra)
     return JsonResponse(payload, status=status_code)
 
-
 def get_json(request, allow_empty: bool = False):
     if not request.body:
         return ({} if allow_empty else None, None if allow_empty else "Empty JSON body")
@@ -99,10 +96,8 @@ def get_json(request, allow_empty: bool = False):
 
     return data, None
 
-
 def require_fields(data, fields):
     return [field for field in fields if not data.get(field)]
-
 
 def tester(request):
     try:
@@ -110,11 +105,10 @@ def tester(request):
     except Exception:
         logger.exception("Tester endpoint failed")
         return json_response(False, "Tester endpoint encountered an unexpected error", status_code=500)
+
 from datetime import datetime, timedelta
 
 OTP_EXPIRY_MINUTES = 15
-
-
 
 # ---------------- Signup ----------------
 @csrf_exempt
@@ -243,6 +237,7 @@ def verify_signup_otp(request):
         return json_response(False, "Unable to verify OTP right now", status_code=500)
 
     return json_response(True, "Signup verified", user_id=user_id)
+
 @csrf_exempt
 def delete_device(request):
     if request.method != 'POST':
@@ -315,7 +310,8 @@ def delete_device(request):
         return json_response(True, 'Device removed from user successfully')
 
     except Exception as e:
-        return json_response(False, 'Unable to remove device right now')
+        logger.exception("Delete device failure: %s", str(e))
+        return json_response(False, 'Unable to remove device right now', status_code=500)
 
 @csrf_exempt
 def login(request):
@@ -347,7 +343,7 @@ def login(request):
     user_id, stored_password,name = row
     if stored_password != password:
         return json_response(False, "Invalid phone or password", status_code=401)
-   
+
     return json_response(True, "Login successful", user_id=user_id, name=name)
 
 @csrf_exempt
@@ -395,7 +391,6 @@ def forgot_password_send_otp(request):
     send_whatsapp_otp(phone, otp)
 
     return json_response(True, "OTP sent", user_id=user_id)
-
 
 @csrf_exempt
 def verify_forgot_otp(request):
@@ -460,7 +455,22 @@ def verify_forgot_otp(request):
 def logout(request):
     return json_response(True, "Logged out")
 
+# -----------------------------
+# New helper: check if user already has access to device
+def _has_device_access(user_id, device_id):
+    """Check if user already has access to the device"""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM iot_user_devices WHERE user_id=%s AND device_id=%s",
+                [user_id, device_id]
+            )
+            return cursor.fetchone() is not None
+    except Exception as e:
+        logger.error("Error checking device access for user %s device %s: %s", user_id, device_id, str(e))
+        return False
 
+# Replaced add_device with improved implementation (duplicate checks + request checks)
 @csrf_exempt
 def add_device(request):
     if request.method != "POST":
@@ -479,37 +489,48 @@ def add_device(request):
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM iot_devices WHERE device_code=%s", [device_code])
+            # Check if device exists
+            cursor.execute("SELECT id, user_count FROM iot_devices WHERE device_code=%s", [device_code])
             device = cursor.fetchone()
 
-            if not device:
-                cursor.execute("INSERT INTO iot_devices (device_code) VALUES (%s)", [device_code])
-                device_id = cursor.lastrowid
+            if device:
+                device_id = device[0]
+                # Check if user already has access
+                if _has_device_access(user_id, device_id):
+                    return json_response(False, "You already have access to this device", status_code=400)
+
+                # Check if request already exists
                 cursor.execute(
-                    "INSERT INTO iot_user_devices (user_id, device_id, role) VALUES (%s, %s, 'admin')",
-                    [user_id, device_id],
+                    "SELECT id FROM iot_device_access_requests WHERE device_id=%s AND requested_by_user_id=%s",
+                    [device_id, user_id]
                 )
-                return json_response(True, "Device Created & You are Admin", device_id=device_id)
+                if cursor.fetchone():
+                    return json_response(False, "Request already pending", status_code=400)
 
-            device_id = device[0]
+                # Create access request
+                cursor.execute(
+                    "INSERT INTO iot_device_access_requests (device_id, requested_by_user_id) VALUES (%s, %s)",
+                    [device_id, user_id],
+                )
+                return json_response(True, "Access request sent", device_id=device_id)
 
+            # Device doesn't exist, create it
             cursor.execute(
-                "SELECT id FROM iot_user_devices WHERE user_id=%s AND device_id=%s",
+                "INSERT INTO iot_devices (device_code, name, user_count) VALUES (%s, %s, %s)",
+                [device_code, f"Device {device_code[-4:]}", 1],
+            )
+            device_id = cursor.lastrowid
+
+            # Add user as admin
+            cursor.execute(
+                "INSERT INTO iot_user_devices (user_id, device_id, role) VALUES (%s, %s, 'admin')",
                 [user_id, device_id],
             )
-            if cursor.fetchone():
-                return json_response(True, "Already Linked", device_id=device_id)
+            return json_response(True, "Device created and you are now the admin", device_id=device_id)
 
-            cursor.execute(
-                "INSERT INTO iot_device_access_requests (device_id, requested_by_user_id) VALUES (%s, %s)",
-                [device_id, user_id],
-            )
-    except Exception:
-        logger.exception("Add device failure for user %s device %s", user_id, device_code)
-        return json_response(False, "Unable to add device right now", status_code=500)
-
-    return json_response(True, "Access Request Sent")
-
+    except Exception as e:
+        logger.exception("Add device error for user %s device_code %s: %s", user_id, device_code, str(e))
+        return json_response(False, "Unable to process request", status_code=500)
 
 def my_devices(request):
     if request.method not in ("GET", "POST"):
@@ -548,7 +569,6 @@ def my_devices(request):
     ]
     return json_response(True, "Devices fetched", devices=devices)
 
-
 @csrf_exempt
 def rename_device(request):
     if request.method != "POST":
@@ -575,7 +595,6 @@ def rename_device(request):
         return json_response(False, "Unable to rename device right now", status_code=500)
 
     return json_response(True, "Device Renamed")
-
 
 @csrf_exempt
 def change_admin(request):
@@ -619,7 +638,6 @@ def change_admin(request):
 
     return json_response(True, "Admin changed")
 
-
 @csrf_exempt
 def control_device(request):
     if request.method != "POST":
@@ -635,7 +653,6 @@ def control_device(request):
 
     return json_response(True, f"Command acknowledged: {data.get('command')}")
 
-
 def _is_admin(user_id, device_id):
     try:
         with connection.cursor() as cursor:
@@ -647,7 +664,6 @@ def _is_admin(user_id, device_id):
     except Exception:
         logger.exception("Admin check failed for user %s device %s", user_id, device_id)
         return False
-
 
 def _get_request(request_id):
     try:
@@ -664,7 +680,6 @@ def _get_request(request_id):
         logger.exception("Fetch request failed %s", request_id)
         return None
 
-
 def _device_name(device_id):
     try:
         with connection.cursor() as cursor:
@@ -674,7 +689,6 @@ def _device_name(device_id):
     except Exception:
         logger.exception("Failed to fetch device name %s", device_id)
         return None
-
 
 def _link_user_to_device(user_id, device_id, role="member"):
     try:
@@ -694,7 +708,6 @@ def _link_user_to_device(user_id, device_id, role="member"):
         logger.exception("Link user failed %s to device %s", user_id, device_id)
         return False
 
-
 def _delete_request(request_id):
     try:
         with connection.cursor() as cursor:
@@ -704,16 +717,30 @@ def _delete_request(request_id):
         logger.exception("Delete request failed %s", request_id)
         return False
 
-
+# Updated pending requests fetch: include requester name & phone, avoid requests where user already has access, return unique results
 def _pending_requests_for_admin(admin_user_id):
     try:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT r.id, r.device_id, COALESCE(d.name, ''), r.requested_by_user_id
+                SELECT 
+                    r.id, 
+                    r.device_id, 
+                    COALESCE(d.name, '') as device_name, 
+                    r.requested_by_user_id,
+                    COALESCE(u.name, '') as user_name,
+                    COALESCE(u.phone, '') as user_phone
                 FROM iot_device_access_requests r
-                JOIN iot_user_devices ud ON ud.device_id = r.device_id AND ud.role='admin' AND ud.user_id=%s
+                JOIN iot_user_devices ud ON ud.device_id = r.device_id 
+                    AND ud.role='admin' 
+                    AND ud.user_id=%s
                 JOIN iot_devices d ON d.id = r.device_id
+                JOIN iot_users u ON u.id = r.requested_by_user_id
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM iot_user_devices ud2 
+                    WHERE ud2.device_id = r.device_id 
+                    AND ud2.user_id = r.requested_by_user_id
+                )
                 ORDER BY r.id DESC
                 """,
                 [admin_user_id],
@@ -724,13 +751,15 @@ def _pending_requests_for_admin(admin_user_id):
                     "device_id": row[1],
                     "device_name": row[2],
                     "user_id": row[3],
+                    "name": row[4],  # User's name
+                    "phone": row[5],  # User's phone number
+                    "phone_number": row[5]  # Backwards compatibility
                 }
                 for row in cursor.fetchall()
             ]
-    except Exception:
-        logger.exception("Pending requests fetch failed for admin %s", admin_user_id)
+    except Exception as e:
+        logger.exception("Pending requests fetch failed for admin %s: %s", admin_user_id, str(e))
         return []
-
 
 def device_members(request):
     if request.method != "GET":
@@ -769,7 +798,6 @@ def device_members(request):
 
     return json_response(True, "Members fetched", members=members)
 
-
 def pending_access_requests(request):
     if request.method != "GET":
         return json_response(False, "GET required", status_code=405)
@@ -778,9 +806,12 @@ def pending_access_requests(request):
     if not admin_user_id:
         return json_response(False, "admin_user_id required", status_code=400)
 
-    requests_list = _pending_requests_for_admin(admin_user_id)
-    return json_response(True, "Pending requests fetched", requests=requests_list)
-
+    try:
+        requests_list = _pending_requests_for_admin(admin_user_id)
+        return json_response(True, "Pending requests fetched", requests=requests_list)
+    except Exception as e:
+        logger.exception("Error in pending_access_requests: %s", str(e))
+        return json_response(False, "Unable to fetch pending requests", status_code=500)
 
 @csrf_exempt
 def approve_access(request):
@@ -802,12 +833,17 @@ def approve_access(request):
     if not _is_admin(data["admin_user_id"], req["device_id"]):
         return json_response(False, "Not authorized", status_code=403)
 
+    # Prevent approving if user already has access (race condition safe-guard)
+    if _has_device_access(req["user_id"], req["device_id"]):
+        # Delete the request to clean up and inform admin
+        _delete_request(req["request_id"])
+        return json_response(False, "User already has access — request removed", status_code=400)
+
     if not _link_user_to_device(req["user_id"], req["device_id"], role="member"):
         return json_response(False, "Unable to approve access right now", status_code=500)
 
     _delete_request(req["request_id"])
     return json_response(True, "Access approved")
-
 
 @csrf_exempt
 def reject_access(request):
@@ -833,7 +869,6 @@ def reject_access(request):
         return json_response(False, "Unable to reject request right now", status_code=500)
 
     return json_response(True, "Request rejected")
-
 
 @csrf_exempt
 def remove_access(request):
@@ -894,6 +929,7 @@ def get_popup(request):
         return JsonResponse({"show": False}, status=200)
 
     except Exception as e:
+        logger.exception("Get popup failed: %s", str(e))
         return JsonResponse({
             "show": False,
             "error": str(e)
@@ -904,117 +940,92 @@ def get_popup(request):
 # ================================================================
 @csrf_exempt
 def resend_signup_otp(request):
-    logger.info("resend_signup_otp called. method=%s, body=%s", request.method, request.body)
 
     if request.method != "POST":
-        logger.warning("resend_signup_otp: non-POST method %s", request.method)
         return json_response(False, "POST required", status_code=405)
 
     data, error = get_json(request)
     if error:
-        logger.warning("resend_signup_otp: JSON error: %s", error)
         return json_response(False, error, status_code=400)
 
     user_id = data.get("user_id")
-    logger.info("resend_signup_otp: parsed user_id=%s", user_id)
 
     if not user_id:
-        logger.warning("resend_signup_otp: user_id missing")
         return json_response(False, "user_id required", status_code=400)
 
     try:
         with connection.cursor() as cursor:
-            logger.info("resend_signup_otp: checking iot_pending_users for id=%s", user_id)
             cursor.execute(
                 "SELECT phone FROM iot_pending_users WHERE id=%s",
                 [user_id]
             )
             row = cursor.fetchone()
-            logger.info("resend_signup_otp: pending user row=%s", row)
 
             if not row:
-                logger.warning("resend_signup_otp: pending user not found for id=%s", user_id)
                 return json_response(False, "Pending user not found", status_code=404)
 
             phone = row[0]
-            logger.info("resend_signup_otp: phone=%s", phone)
 
             # Generate new OTP
             otp = generate_otp()
             expires_at = datetime.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
-            logger.info("resend_signup_otp: generated otp=%s, expires_at=%s", otp, expires_at)
 
             cursor.execute(
                 "INSERT INTO iot_otps (phone, otp, purpose, expires_at) VALUES (%s, %s, 'signup', %s)",
                 [phone, otp, expires_at]
             )
-            logger.info("resend_signup_otp: inserted OTP row for phone=%s", phone)
 
         # Send OTP
         send_result = send_whatsapp_otp(phone, otp)
-        logger.info("resend_signup_otp: send_whatsapp_otp result=%s", send_result)
-
         return json_response(True, "OTP resent successfully")
 
-    except Exception:
-        logger.exception("Resend signup OTP error for pending user %s", user_id)
+    except Exception as e:
+        logger.exception("Resend signup OTP failed: %s", str(e))
         return json_response(False, "Could not resend OTP", status_code=500)
-    
-    
+
+
 # ================================================================
 #                 RESEND OTP - FORGOT PASSWORD
 # ================================================================
 @csrf_exempt
 def resend_forgot_otp(request):
-    logger.info("resend_forgot_otp called. method=%s, body=%s", request.method, request.body)
 
     if request.method != "POST":
-        logger.warning("resend_forgot_otp: non-POST method %s", request.method)
         return json_response(False, "POST required", status_code=405)
 
     data, error = get_json(request)
     if error:
-        logger.warning("resend_forgot_otp: JSON error: %s", error)
         return json_response(False, error, status_code=400)
 
     user_id = data.get("user_id")
-    logger.info("resend_forgot_otp: parsed user_id=%s", user_id)
 
     if not user_id:
-        logger.warning("resend_forgot_otp: user_id missing")
         return json_response(False, "user_id required", status_code=400)
 
     try:
         with connection.cursor() as cursor:
-            logger.info("resend_forgot_otp: selecting phone from iot_users where id=%s", user_id)
             cursor.execute("SELECT phone FROM iot_users WHERE id=%s", [user_id])
             row = cursor.fetchone()
-            logger.info("resend_forgot_otp: user row=%s", row)
 
             if not row:
-                logger.warning("resend_forgot_otp: user not found for id=%s", user_id)
                 return json_response(False, "User not found", status_code=404)
 
             phone = row[0]
-            logger.info("resend_forgot_otp: phone=%s", phone)
 
             # Generate new OTP
             otp = generate_otp()
             expires_at = datetime.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
-            logger.info("resend_forgot_otp: generated otp=%s, expires_at=%s", otp, expires_at)
 
             cursor.execute(
                 "INSERT INTO iot_otps (phone, otp, purpose, expires_at) VALUES (%s, %s, 'forgot', %s)",
                 [phone, otp, expires_at]
             )
-            logger.info("resend_forgot_otp: inserted OTP row for phone=%s", phone)
 
         # Send OTP
         send_result = send_whatsapp_otp(phone, otp)
-        logger.info("resend_forgot_otp: send_whatsapp_otp result=%s", send_result)
 
         return json_response(True, "OTP resent successfully")
 
-    except Exception:
-        logger.exception("Resend forgot OTP error for user %s", user_id)
+    except Exception as e:
+        logger.exception("Resend forgot OTP failed: %s", str(e))
         return json_response(False, "Some error occurred", status_code=500)
