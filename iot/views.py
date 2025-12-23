@@ -491,24 +491,55 @@ def add_device(request):
 
     try:
         with connection.cursor() as cursor:
+
+            # 🔒 USER DEVICE LIMIT (max 5)
+            cursor.execute(
+                "SELECT COUNT(*) FROM iot_user_devices WHERE user_id = %s",
+                [user_id]
+            )
+            if cursor.fetchone()[0] >= 5:
+                return json_response(
+                    False,
+                    "User cannot have more than 5 devices",
+                    status_code=400
+                )
+
             # Check if device exists
-            cursor.execute("SELECT id FROM iot_devices WHERE device_code = %s", [device_code])
+            cursor.execute(
+                "SELECT id FROM iot_devices WHERE device_code = %s",
+                [device_code]
+            )
             device = cursor.fetchone()
 
             if device:
                 device_id = device[0]
-                
-                # Check if user already has access
+
+                # 🔒 DEVICE USER LIMIT (max 5)
+                cursor.execute(
+                    "SELECT COUNT(*) FROM iot_user_devices WHERE device_id = %s",
+                    [device_id]
+                )
+                if cursor.fetchone()[0] >= 5:
+                    return json_response(
+                        False,
+                        "This device already has maximum 5 users",
+                        status_code=400
+                    )
+
+                # Already has access?
                 cursor.execute(
                     "SELECT id FROM iot_user_devices WHERE user_id = %s AND device_id = %s",
                     [user_id, device_id]
                 )
                 if cursor.fetchone():
                     return json_response(False, "You already have access to this device", status_code=400)
-                
-                # Check if request already exists
+
+                # Request already pending?
                 cursor.execute(
-                    "SELECT id FROM iot_device_access_requests WHERE device_id = %s AND requested_by_user_id = %s",
+                    """
+                    SELECT id FROM iot_device_access_requests
+                    WHERE device_id = %s AND requested_by_user_id = %s
+                    """,
                     [device_id, user_id]
                 )
                 if cursor.fetchone():
@@ -516,29 +547,46 @@ def add_device(request):
 
                 # Create access request
                 cursor.execute(
-                    "INSERT INTO iot_device_access_requests (device_id, requested_by_user_id) VALUES (%s, %s)",
-                    [device_id, user_id],
+                    """
+                    INSERT INTO iot_device_access_requests
+                    (device_id, requested_by_user_id)
+                    VALUES (%s, %s)
+                    """,
+                    [device_id, user_id]
                 )
-                return json_response(True, "Access request sent to device admin", device_id=device_id)
 
-            # Device doesn't exist, create it
+                return json_response(
+                    True,
+                    "Access request sent to device admin",
+                    device_id=device_id
+                )
+
+            # 🚀 DEVICE DOES NOT EXIST → CREATE IT
+
             cursor.execute(
                 "INSERT INTO iot_devices (device_code, name) VALUES (%s, %s)",
-                [device_code, f"Device {device_code[-4:]}"],
+                [device_code, f"Device {device_code[-4:]}"]
             )
             device_id = cursor.lastrowid
 
-            # Add user as admin
+            # Creator becomes admin
             cursor.execute(
-                "INSERT INTO iot_user_devices (user_id, device_id, role) VALUES (%s, %s, 'admin')",
-                [user_id, device_id],
+                """
+                INSERT INTO iot_user_devices (user_id, device_id, role)
+                VALUES (%s, %s, 'admin')
+                """,
+                [user_id, device_id]
             )
-            return json_response(True, "Device created and you are now the admin", device_id=device_id)
+
+            return json_response(
+                True,
+                "Device created and you are now the admin",
+                device_id=device_id
+            )
 
     except Exception as e:
         logger.exception("Error in add_device: %s", str(e))
         return json_response(False, "Unable to process request", status_code=500)
-
 
 def my_devices(request):
     if request.method not in ("GET", "POST"):
