@@ -28,6 +28,7 @@ else:
 # Apps
 # ----------------------------
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -145,7 +146,9 @@ USE_TZ = True
 # ----------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
 
@@ -232,4 +235,16 @@ LOGGING = {
         "console": {"class": "logging.StreamHandler"},
     },
     "root": {"handlers": ["console"], "level": "INFO"},
+}
+
+JAZZMIN_SETTINGS = {
+    "site_title": "EZrun Admin",
+    "site_header": "EZrun Admin",
+    "site_brand": "EZrun",
+    "welcome_sign": "Welcome to Nishit Kumawat Admin",
+    "copyright":
+        "Nishit Kumawat • 2025",
+}
+JAZZMIN_UI_TWEAKS = {
+    "custom_css": "css/custom_admin.css",
 }
