@@ -119,7 +119,12 @@ def get_solar_stats(request):
                 address = location.raw.get('address', {})
                 city = address.get('city') or address.get('town') or address.get('village') or ""
                 state = address.get('state') or ""
-                location_data = {"city": city, "state": state}
+                location_data = {
+                    "city": city, 
+                    "state": state,
+                    "lat": last_data.lat,
+                    "lon": last_data.lon
+                }
                 
         except Exception as e:
             print(f"Geocoding error: {e}")

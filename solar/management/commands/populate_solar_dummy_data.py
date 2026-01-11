@@ -1,79 +1,71 @@
-import random
-from datetime import timedelta
 from django.core.management.base import BaseCommand
+import random
+from datetime import datetime, timedelta, time
 from django.utils import timezone
-from solar.models import SolarHourlyData
+from solar.models import SolarHourlyData 
 
 class Command(BaseCommand):
-    help = 'Populates SolarHourlyData with dummy data: 3 months, 4-hour intervals'
+    help = 'Executes user provided dummy data script'
 
-    def handle(self, *args, **kwargs):
-        device_id = "1CSNISHITKUMAWAT"
-        self.stdout.write(f"Clearing and populating data for {device_id}...")
+    def handle(self, *args, **options):
+        DEVICE_ID = "1CSNISHITKUMAWAT"
+        LAT = 23.0225
+        LON = 72.5714
 
-        # Clear ALL data for this device as requested
-        SolarHourlyData.objects.filter(device_id=device_id).delete()
-        
-        end_time = timezone.now()
-        # Generate for last 3 months (90 days)
-        start_time = end_time - timedelta(days=90)
-        
-        current_day = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
-        batch = []
-        
-        # User requested "gap of 4 hrs". We'll do a simple set of offsets.
-        # e.g., 08:00, 12:00, 16:00 covers the main solar windows.
-        # If they meant 24h coverage: 0, 4, 8, 12, 16, 20.
-        # Given it's Solar, 8-12-16 makes the most sense so we don't have zeros at night.
-        hour_offsets = [8, 12, 16] 
-        
-        while current_day.date() <= end_time.date():
-            for hour in hour_offsets:
-                # Add some random minute variation? "different time"
-                # Let's keep it clean on the hour for graph clarity unless specified.
-                timestamp = current_day.replace(hour=hour)
-                
-                if timestamp > end_time:
-                    continue
+        # Pre-emptive clear based on previous context, to ensure clean graph
+        SolarHourlyData.objects.filter(device_id=DEVICE_ID).delete()
+        self.stdout.write(f"Cleared existing data for {DEVICE_ID}")
 
-                # Simulate Power
-                # Peak at 12
-                if hour == 12:
-                    base_power = 2500 # Near Peak
-                elif hour in [8, 16]:
-                    base_power = 1200 # Morning/Afternoon
-                else:
-                    base_power = 0
-                
-                # Randomize
-                power = base_power * random.uniform(0.8, 1.1)
-                
-                # Voltage & Current
-                voltage = random.uniform(225, 235) if power > 0 else 0
-                current = (power / voltage) if voltage > 0 else 0
-                
-                # Energy since last reading (4 hours approx) - very rough est
-                energy = power * 4 
+        today = timezone.now().date()
+        start_date = today - timedelta(days=90)
 
-                batch.append(SolarHourlyData(
-                    device_id=device_id,
-                    voltage=round(voltage, 2),
-                    current=round(current, 2),
-                    power=round(power, 2),
-                    energy=round(energy, 2),
-                    timestamp=timestamp,
-                    lat=26.9124, # Jaipur
-                    lon=75.7873
-                ))
-            
-            if len(batch) >= 500:
-                SolarHourlyData.objects.bulk_create(batch)
-                batch = []
-                self.stdout.write(f"Generated for {current_day.date()}")
-            
-            current_day += timedelta(days=1)
-            
-        if batch:
-            SolarHourlyData.objects.bulk_create(batch)
+        objects = []
 
-        self.stdout.write(self.style.SUCCESS('Successfully repopulated solar data (3 months, 4hr gaps)'))
+        for day in range(90):
+            date = start_date + timedelta(days=day)
+
+            # 12–13 random entries per day
+            entries_count = random.randint(12, 13)
+
+            used_minutes = set()
+            daily_energy = 0.0
+
+            for _ in range(entries_count):
+                # Random time between 6 AM and 7 PM
+                hour = random.randint(6, 18)
+                minute = random.randint(0, 59)
+
+                # Avoid same timestamp
+                while (hour, minute) in used_minutes:
+                    minute = random.randint(0, 59)
+
+                used_minutes.add((hour, minute))
+
+                ts = timezone.make_aware(
+                    datetime.combine(date, time(hour, minute))
+                )
+
+                voltage = round(random.uniform(18.0, 38.0), 2)
+                current = round(random.uniform(0.5, 8.0), 2)
+                power = round(voltage * current, 2)
+
+                # assume ~1 hour gap equivalent
+                energy = round(power * random.uniform(0.7, 1.1), 2)
+                daily_energy += energy
+
+                objects.append(
+                    SolarHourlyData(
+                        device_id=DEVICE_ID,
+                        voltage=voltage,
+                        current=current,
+                        power=power,
+                        energy=daily_energy,
+                        lat=LAT,
+                        lon=LON,
+                        timestamp=ts
+                    )
+                )
+
+        SolarHourlyData.objects.bulk_create(objects)
+
+        self.stdout.write(f"Inserted {len(objects)} records successfully")
