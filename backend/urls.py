@@ -20,4 +20,6 @@ from django.urls import path, include
 urlpatterns = [
     path('ezrun_admin/', admin.site.urls),
     path('iot/', include('iot.urls')),
+    path('ota/', include('ota.urls')),
+    path('api/solar/', include('solar.urls')),
 ]

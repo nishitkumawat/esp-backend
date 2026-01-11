@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     "cloudinary_storage",
 
     "iot",
+    "ota",
+    "solar",
 ]
 
 # ----------------------------
