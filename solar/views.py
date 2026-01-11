@@ -106,9 +106,10 @@ def get_solar_stats(request):
             
     # Fetch Location
     location_data = {"city": "Unknown", "state": "Unknown"}
-    last_data = SolarHourlyData.objects.filter(device_id=device_id).order_by('-timestamp').first()
+    # Find the latest record THAT HAS LOCATION data
+    last_data = SolarHourlyData.objects.filter(device_id=device_id, lat__isnull=False).order_by('-timestamp').first()
     
-    if last_data and last_data.lat and last_data.lon:
+    if last_data:
         try:
             from geopy.geocoders import Nominatim
             geolocator = Nominatim(user_agent="machmate_solar_app")
@@ -117,7 +118,14 @@ def get_solar_stats(request):
             
             if location:
                 address = location.raw.get('address', {})
-                city = address.get('city') or address.get('town') or address.get('village') or ""
+                city = (address.get('city') or 
+                        address.get('town') or 
+                        address.get('village') or 
+                        address.get('municipality') or
+                        address.get('suburb') or 
+                        address.get('state_district') or 
+                        address.get('county') or 
+                        "Unknown Location")
                 state = address.get('state') or ""
                 location_data = {
                     "city": city, 
