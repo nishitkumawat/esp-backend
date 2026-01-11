@@ -44,51 +44,87 @@ def get_solar_stats(request):
     elif period == 'month':
         # Last 30 days, daily average
         start_time = now - timedelta(days=30)
-        # Detailed aggregation in Django ORM can be complex across DBs (sqlite vs mysql)
-        # For simplicity/speed, we fetch hourly and aggregate in python or use basic filtering
-        # Ideally, use TruncDay.
         from django.db.models.functions import TruncDay
         
         qs = SolarHourlyData.objects.filter(
             device_id=device_id,
             timestamp__gte=start_time
-        ).annotate(day=TruncDay('timestamp')).values('day').annotate(avg_power=Avg('power')).order_by('day')
+        ).annotate(date=TruncDay('timestamp')).values('date').annotate(avg_power=Avg('power')).order_by('date')
 
         for item in qs:
             data_points.append({
-                "time": item['day'].strftime("%d-%b"), # 12-Jan
+                "time": item['date'].strftime("%d-%b"), # 12-Jan
                 "power": round(item['avg_power'], 2)
             })
 
-    # Fetch last wash details
-    last_after = WashRecord.objects.filter(device_id=device_id, wash_type='AFTER').first()
-    last_before = WashRecord.objects.filter(device_id=device_id, wash_type='BEFORE').first()
-    
-    wash_data = {}
-    if last_after:
-        wash_data['after'] = {
-            "voltage": last_after.voltage,
-            "current": last_after.current,
-            "power": last_after.power,
-            "timestamp": last_after.timestamp.isoformat()
-        }
-    else:
-        wash_data['after'] = None
+    elif period == 'year':
+        # Last 12 months, monthly average
+        start_time = now - timedelta(days=365)
+        from django.db.models.functions import TruncMonth
         
-    if last_before:
-        # We might want the 'before' that corresponds to the 'after'. 
-        # Usually checking if before.timestamp < after.timestamp and not too far apart.
-        # For simple UI, just showing latest available.
-        wash_data['before'] = {
-            "voltage": last_before.voltage,
-            "current": last_before.current,
-            "power": last_before.power,
-            "timestamp": last_before.timestamp.isoformat()
-        }
-    else:
-        wash_data['before'] = None
+        qs = SolarHourlyData.objects.filter(
+            device_id=device_id,
+            timestamp__gte=start_time
+        ).annotate(month=TruncMonth('timestamp')).values('month').annotate(avg_power=Avg('power')).order_by('month')
 
-    return json_response(True, "Stats fetched", data=data_points, wash=wash_data)
+        for item in qs:
+            data_points.append({
+                "time": item['month'].strftime("%b-%y"), # Jan-24
+                "power": round(item['avg_power'], 2)
+            })
+
+    # Fetch wash details with REVERSE logic (Find AFTER, then preceding BEFORE)
+    # Fetch all records DESCENDING (latest first)
+    wash_records = WashRecord.objects.filter(device_id=device_id).order_by('-timestamp')
+    
+    wash_data = {'before': None, 'after': None}
+    
+    # Iterate to find the first 'AFTER' wash
+    for i, record in enumerate(wash_records):
+        if record.wash_type == 'AFTER':
+            # Look ahead (which is future in list index, but past in time) for immediately preceding record
+            if i + 1 < len(wash_records):
+                prev_record = wash_records[i+1] # The one before this 'AFTER'
+                if prev_record.wash_type == 'BEFORE':
+                    # Found our pair
+                    wash_data['after'] = {
+                        "voltage": record.voltage,
+                        "current": record.current,
+                        "power": record.power,
+                        "timestamp": record.timestamp.isoformat()
+                    }
+                    wash_data['before'] = {
+                        "voltage": prev_record.voltage,
+                        "current": prev_record.current,
+                        "power": prev_record.power,
+                        "timestamp": prev_record.timestamp.isoformat()
+                    }
+                    break # Stop after finding the latest valid pair
+            
+            # If we found an AFTER but no immediately preceding BEFORE, we ignore it 
+            # (or we could show it as orphaned, but user prompt implies strictness "enter just after its before")
+            
+    # Fetch Location
+    location_data = {"city": "Unknown", "state": "Unknown"}
+    last_data = SolarHourlyData.objects.filter(device_id=device_id).order_by('-timestamp').first()
+    
+    if last_data and last_data.lat and last_data.lon:
+        try:
+            from geopy.geocoders import Nominatim
+            geolocator = Nominatim(user_agent="machmate_solar_app")
+            # timeout is important so we don't block too long
+            location = geolocator.reverse((last_data.lat, last_data.lon), language='en', timeout=2)
+            
+            if location:
+                address = location.raw.get('address', {})
+                city = address.get('city') or address.get('town') or address.get('village') or ""
+                state = address.get('state') or ""
+                location_data = {"city": city, "state": state}
+                
+        except Exception as e:
+            print(f"Geocoding error: {e}")
+
+    return json_response(True, "Stats fetched", data=data_points, wash=wash_data, location=location_data)
 
 @csrf_exempt
 def record_wash(request):

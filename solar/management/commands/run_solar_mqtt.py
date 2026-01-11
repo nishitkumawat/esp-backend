@@ -44,6 +44,8 @@ class Command(BaseCommand):
                 voltage = float(data.get('voltage', 0))
                 current = float(data.get('current', 0))
                 power = float(data.get('power', 0))
+                lat = data.get('lat')
+                lon = data.get('lon')
                 
                 if not device_id:
                     return
@@ -54,7 +56,9 @@ class Command(BaseCommand):
                         voltage=voltage,
                         current=current,
                         power=power,
-                        energy=power # Assuming power is avg power over hour, so Wh ~= Power. Or just storing raw.
+                        energy=power, # Assuming power is avg power over hour
+                        lat=lat,
+                        lon=lon
                     )
                     logger.info(f"Saved Hourly Data for {device_id}")
                     print(f"Saved Hourly Data for {device_id}")

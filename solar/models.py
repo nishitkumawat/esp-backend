@@ -6,6 +6,8 @@ class SolarHourlyData(models.Model):
     current = models.FloatField()
     power = models.FloatField()
     energy = models.FloatField(default=0.0) # Wh
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
