@@ -4,6 +4,7 @@ from django.db.models import Avg
 from django.utils import timezone
 from datetime import timedelta
 import json
+import requests
 from .models import SolarHourlyData, WashRecord
 
 def json_response(status: bool, message: str, status_code: int = 200, **extra):
@@ -104,12 +105,17 @@ def get_solar_stats(request):
             # If we found an AFTER but no immediately preceding BEFORE, we ignore it 
             # (or we could show it as orphaned, but user prompt implies strictness "enter just after its before")
             
-    # Fetch Location
-    location_data = {"city": "Unknown", "state": "Unknown"}
+    # Fetch Location and Temperature
+    location_data = {"city": "Unknown", "state": "Unknown", "temperature": None}
     # Find the latest record THAT HAS LOCATION data
     last_data = SolarHourlyData.objects.filter(device_id=device_id, lat__isnull=False).order_by('-timestamp').first()
     
     if last_data:
+        # Store lat/lon for potential use
+        location_data["lat"] = last_data.lat
+        location_data["lon"] = last_data.lon
+        
+        # Fetch location (city, state) using reverse geocoding
         try:
             from geopy.geocoders import Nominatim
             geolocator = Nominatim(user_agent="machmate_solar_app")
@@ -127,15 +133,24 @@ def get_solar_stats(request):
                         address.get('county') or 
                         "Unknown Location")
                 state = address.get('state') or ""
-                location_data = {
-                    "city": city, 
-                    "state": state,
-                    "lat": last_data.lat,
-                    "lon": last_data.lon
-                }
+                location_data["city"] = city
+                location_data["state"] = state
                 
         except Exception as e:
             print(f"Geocoding error: {e}")
+        
+        # Fetch temperature from weather API
+        try:
+            weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={last_data.lat}&longitude={last_data.lon}&current=temperature_2m,weather_code"
+            weather_response = requests.get(weather_url, timeout=3)
+            
+            if weather_response.status_code == 200:
+                weather_data = weather_response.json()
+                if 'current' in weather_data and 'temperature_2m' in weather_data['current']:
+                    location_data["temperature"] = weather_data['current']['temperature_2m']
+                    
+        except Exception as e:
+            print(f"Weather API error: {e}")
 
     return json_response(True, "Stats fetched", data=data_points, wash=wash_data, location=location_data)
 
