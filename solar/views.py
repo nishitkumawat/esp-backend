@@ -139,20 +139,29 @@ def get_solar_stats(request):
         except Exception as e:
             print(f"Geocoding error: {e}")
         
-        # Fetch temperature from weather API
+        # Fetch temperature and weather_code from weather API
         try:
             weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={last_data.lat}&longitude={last_data.lon}&current=temperature_2m,weather_code"
             weather_response = requests.get(weather_url, timeout=3)
             
             if weather_response.status_code == 200:
                 weather_data = weather_response.json()
-                if 'current' in weather_data and 'temperature_2m' in weather_data['current']:
-                    location_data["temperature"] = weather_data['current']['temperature_2m']
+                if 'current' in weather_data:
+                    if 'temperature_2m' in weather_data['current']:
+                        location_data["temperature"] = weather_data['current']['temperature_2m']
+                    if 'weather_code' in weather_data['current']:
+                        location_data["weather_code"] = weather_data['current']['weather_code']
                     
         except Exception as e:
             print(f"Weather API error: {e}")
+    
+    # Fetch current power (most recent reading)
+    current_power = 0.0
+    latest_reading = SolarHourlyData.objects.filter(device_id=device_id).order_by('-timestamp').first()
+    if latest_reading:
+        current_power = latest_reading.power
 
-    return json_response(True, "Stats fetched", data=data_points, wash=wash_data, location=location_data)
+    return json_response(True, "Stats fetched", data=data_points, wash=wash_data, location=location_data, current_power=current_power)
 
 @csrf_exempt
 def record_wash(request):
