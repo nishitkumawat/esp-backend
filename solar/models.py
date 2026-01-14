@@ -34,16 +34,17 @@ class WashRecord(models.Model):
 
     def __str__(self):
         return f"{self.device_id} - {self.wash_type} - {self.timestamp}"
-
 class DeviceLocation(models.Model):
-    """Stores geolocation information for each device    """
     device_id = models.CharField(max_length=100, unique=True, db_index=True)
-    lat = models.FloatField()
-    lon = models.FloatField()
+
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+
     city = models.CharField(max_length=200, default='Unknown')
     state = models.CharField(max_length=200, default='Unknown')
     country = models.CharField(max_length=200, default='', blank=True)
     zip_code = models.CharField(max_length=20, default='', blank=True)
+
     last_updated = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
