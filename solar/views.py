@@ -419,3 +419,21 @@ def get_client_ip(request):
     if xff:
         return xff.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
+
+def geocode_city(city, state):
+    try:
+        url = (
+            "https://geocoding-api.open-meteo.com/v1/search"
+            f"?name={city}&count=1&language=en"
+        )
+        r = requests.get(url, timeout=4)
+        data = r.json()
+
+        if data.get("results"):
+            res = data["results"][0]
+            return res.get("latitude"), res.get("longitude")
+
+    except Exception as e:
+        print("Geocoding failed:", e)
+
+    return None, None
