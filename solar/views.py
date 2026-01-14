@@ -144,52 +144,136 @@ def get_solar_stats(request):
 @csrf_exempt
 def ping_location(request):
     """
-    ESP pings this on startup: /api/solar/ping?device_id=...
-    Backend fetches location from IP and updates DeviceLocation.
+    ESP pings after Wi-Fi setup or boot.
+
+    Priority:
+    1) GPS lat/lon from Wi-Fi setup (phone browser)
+    2) IP-based fallback (low accuracy)
     """
-    device_id = request.GET.get('device_id')
+
+    device_id = request.GET.get("device_id")
     if not device_id:
         return json_response(False, "Missing device_id", status_code=400)
-    
-    # Get public IP
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    
-    # For local testing, handle loopback
-    if ip == '127.0.0.1' or ip == '::1' or ip.startswith('192.168.'):
-        # We can't geolocate local IPs, so we'll just acknowledge the ping
-        return json_response(True, "Ping received (Internal/Local IP)", ip=ip)
+
+    # =====================================================
+    # 1️⃣ GPS-BASED LOCATION (BEST & ACCURATE)
+    # =====================================================
+    lat = request.GET.get("lat")
+    lon = request.GET.get("lon")
+
+    if lat and lon:
+        try:
+            # 🌍 Reverse geocoding (FREE)
+            geo_url = (
+                "https://geocoding-api.open-meteo.com/v1/reverse"
+                f"?latitude={lat}&longitude={lon}&language=en"
+            )
+            geo_res = requests.get(geo_url, timeout=5)
+            geo_data = geo_res.json()
+
+            city = state = country = zip_code = "Unknown"
+
+            if geo_data.get("results"):
+                r = geo_data["results"][0]
+                city = r.get("city") or r.get("town") or r.get("village") or "Unknown"
+                state = r.get("admin1") or "Unknown"
+                country = r.get("country") or ""
+                zip_code = r.get("postcode") or ""
+
+            DeviceLocation.objects.update_or_create(
+                device_id=device_id,
+                defaults={
+                    "lat": float(lat),
+                    "lon": float(lon),
+                    "city": city,
+                    "state": state,
+                    "country": country,
+                    "zip_code": zip_code,
+                }
+            )
+
+            return json_response(
+                True,
+                "Location saved from GPS",
+                lat=lat,
+                lon=lon,
+                city=city,
+                state=state,
+                country=country,
+                zip_code=zip_code,
+                source="gps",
+            )
+
+        except Exception as e:
+            return json_response(
+                False,
+                "GPS reverse geocoding failed",
+                error=str(e),
+                status_code=500,
+            )
+
+    # =====================================================
+    # 2️⃣ IP-BASED FALLBACK (LIMITED ACCURACY)
+    # =====================================================
+    ip = get_client_ip(request)
+
+    if not ip or ip.startswith(("127.", "192.168.", "10.", "172.")):
+        return json_response(
+            True,
+            "Ping received (no usable location)",
+            source="none",
+            ip=ip,
+        )
 
     try:
-        # Use ip-api.com (free for non-commercial use, 45 requests/min)
-        response = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('status') == 'success':
-                DeviceLocation.objects.update_or_create(
-                    device_id=device_id,
-                    defaults={
-                        'lat': data.get('lat'),
-                        'lon': data.get('lon'),
-                        'city': data.get('city', 'Unknown'),
-                        'state': data.get('regionName', 'Unknown'),
-                        'country': data.get('country', ''),
-                        'zip_code': data.get('zip', ''),
-                    }
-                )
-                return json_response(True, "Location updated", city=data.get('city'), ip=ip)
-            else:
-                return json_response(False, f"IP Geolocation failed: {data.get('message')}", ip=ip)
+        ip_res = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
+        data = ip_res.json()
+
+        if data.get("status") != "success":
+            return json_response(False, "IP location failed", ip=ip)
+
+        DeviceLocation.objects.update_or_create(
+            device_id=device_id,
+            defaults={
+                "lat": data.get("lat"),
+                "lon": data.get("lon"),
+                "city": data.get("city", "Unknown"),
+                "state": data.get("regionName", "Unknown"),
+                "country": data.get("country", ""),
+                "zip_code": data.get("zip", ""),
+            }
+        )
+
+        return json_response(
+            True,
+            "Location saved from IP",
+            city=data.get("city"),
+            state=data.get("regionName"),
+            country=data.get("country"),
+            zip_code=data.get("zip"),
+            source="ip",
+        )
+
     except Exception as e:
-        print(f"IP-based Geolocation error: {e}")
-        return json_response(False, f"Error updating location: {str(e)}", status_code=500)
-        
-    return json_response(False, "Failed to update location", status_code=500)
+        return json_response(
+            False,
+            "IP location error",
+            error=str(e),
+            status_code=500,
+        )
+
 
 @csrf_exempt
 def record_wash(request):
     # This might not be needed if we rely solely on MQTT, but good to have API backup
     pass
+
+def get_client_ip(request):
+    """
+    Get real client IP even behind nginx / proxy
+    """
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        # First IP is the real client
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
