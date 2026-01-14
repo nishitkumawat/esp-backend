@@ -345,7 +345,10 @@ def record_wash(request):
 def save_device_location(request):
     try:
         data = json.loads(request.body)
+
         device_id = data.get("device_id")
+        state = data.get("state")
+        city = data.get("city")
 
         if not device_id:
             return JsonResponse(
@@ -353,26 +356,35 @@ def save_device_location(request):
                 status=400
             )
 
-        ip = get_client_ip(request)
-        lat, lon, city, country = city_from_ip(ip)
+        if not state or not city:
+            return JsonResponse(
+                {"status": False, "message": "state and city required"},
+                status=400
+            )
+
+        # OPTIONAL: Convert city -> lat/lon (FREE)
+        lat, lon = geocode_city(city, state)
 
         DeviceLocation.objects.update_or_create(
             device_id=device_id,
             defaults={
+                "state": state,
+                "city": city,
                 "lat": lat,
                 "lon": lon,
-                "city": city,
-                "country": country,
-                "source": "ip",
+                "source": "manual",
                 "last_updated": timezone.now()
             }
         )
 
         return JsonResponse({
             "status": True,
+            "message": "Location saved",
+            "device_id": device_id,
+            "state": state,
             "city": city,
-            "country": country,
-            "source": "ip"
+            "lat": lat,
+            "lon": lon
         })
 
     except json.JSONDecodeError:
