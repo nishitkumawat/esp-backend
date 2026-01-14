@@ -142,126 +142,126 @@ def get_solar_stats(request):
 
     return json_response(True, "Stats fetched", data=data_points, wash=wash_data, location=location_data, current_power=current_power)
 
-@csrf_exempt
-def ping_location(request):
-    """
-    ESP pings after Wi-Fi setup or boot.
+# @csrf_exempt
+# def ping_location(request):
+#     """
+#     ESP pings after Wi-Fi setup or boot.
 
-    Priority:
-    1) GPS lat/lon from Wi-Fi setup (phone browser)
-    2) IP-based fallback (low accuracy)
-    """
+#     Priority:
+#     1) GPS lat/lon from Wi-Fi setup (phone browser)
+#     2) IP-based fallback (low accuracy)
+#     """
 
-    device_id = request.GET.get("device_id")
-    if not device_id:
-        return json_response(False, "Missing device_id", status_code=400)
+#     device_id = request.GET.get("device_id")
+#     if not device_id:
+#         return json_response(False, "Missing device_id", status_code=400)
 
-    # =====================================================
-    # 1️⃣ GPS-BASED LOCATION (BEST & ACCURATE)
-    # =====================================================
-    lat = request.GET.get("lat")
-    lon = request.GET.get("lon")
+#     # =====================================================
+#     # 1️⃣ GPS-BASED LOCATION (BEST & ACCURATE)
+#     # =====================================================
+#     lat = request.GET.get("lat")
+#     lon = request.GET.get("lon")
 
-    if lat and lon:
-        try:
-            # 🌍 Reverse geocoding (FREE)
-            geo_url = (
-                "https://geocoding-api.open-meteo.com/v1/reverse"
-                f"?latitude={lat}&longitude={lon}&language=en"
-            )
-            geo_res = requests.get(geo_url, timeout=5)
-            geo_data = geo_res.json()
+#     if lat and lon:
+#         try:
+#             # 🌍 Reverse geocoding (FREE)
+#             geo_url = (
+#                 "https://geocoding-api.open-meteo.com/v1/reverse"
+#                 f"?latitude={lat}&longitude={lon}&language=en"
+#             )
+#             geo_res = requests.get(geo_url, timeout=5)
+#             geo_data = geo_res.json()
 
-            city = state = country = zip_code = "Unknown"
+#             city = state = country = zip_code = "Unknown"
 
-            if geo_data.get("results"):
-                r = geo_data["results"][0]
-                city = r.get("city") or r.get("town") or r.get("village") or "Unknown"
-                state = r.get("admin1") or "Unknown"
-                country = r.get("country") or ""
-                zip_code = r.get("postcode") or ""
+#             if geo_data.get("results"):
+#                 r = geo_data["results"][0]
+#                 city = r.get("city") or r.get("town") or r.get("village") or "Unknown"
+#                 state = r.get("admin1") or "Unknown"
+#                 country = r.get("country") or ""
+#                 zip_code = r.get("postcode") or ""
 
-            DeviceLocation.objects.update_or_create(
-                device_id=device_id,
-                defaults={
-                    "lat": float(lat),
-                    "lon": float(lon),
-                    "city": city,
-                    "state": state,
-                    "country": country,
-                    "zip_code": zip_code,
-                }
-            )
+#             DeviceLocation.objects.update_or_create(
+#                 device_id=device_id,
+#                 defaults={
+#                     "lat": float(lat),
+#                     "lon": float(lon),
+#                     "city": city,
+#                     "state": state,
+#                     "country": country,
+#                     "zip_code": zip_code,
+#                 }
+#             )
 
-            return json_response(
-                True,
-                "Location saved from GPS",
-                lat=lat,
-                lon=lon,
-                city=city,
-                state=state,
-                country=country,
-                zip_code=zip_code,
-                source="gps",
-            )
+#             return json_response(
+#                 True,
+#                 "Location saved from GPS",
+#                 lat=lat,
+#                 lon=lon,
+#                 city=city,
+#                 state=state,
+#                 country=country,
+#                 zip_code=zip_code,
+#                 source="gps",
+#             )
 
-        except Exception as e:
-            return json_response(
-                False,
-                "GPS reverse geocoding failed",
-                error=str(e),
-                status_code=500,
-            )
+#         except Exception as e:
+#             return json_response(
+#                 False,
+#                 "GPS reverse geocoding failed",
+#                 error=str(e),
+#                 status_code=500,
+#             )
 
-    # =====================================================
-    # 2️⃣ IP-BASED FALLBACK (LIMITED ACCURACY)
-    # =====================================================
-    ip = get_client_ip(request)
+#     # =====================================================
+#     # 2️⃣ IP-BASED FALLBACK (LIMITED ACCURACY)
+#     # =====================================================
+#     ip = get_client_ip(request)
 
-    if not ip or ip.startswith(("127.", "192.168.", "10.", "172.")):
-        return json_response(
-            True,
-            "Ping received (no usable location)",
-            source="none",
-            ip=ip,
-        )
+#     if not ip or ip.startswith(("127.", "192.168.", "10.", "172.")):
+#         return json_response(
+#             True,
+#             "Ping received (no usable location)",
+#             source="none",
+#             ip=ip,
+#         )
 
-    try:
-        ip_res = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
-        data = ip_res.json()
+#     try:
+#         ip_res = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
+#         data = ip_res.json()
 
-        if data.get("status") != "success":
-            return json_response(False, "IP location failed", ip=ip)
+#         if data.get("status") != "success":
+#             return json_response(False, "IP location failed", ip=ip)
 
-        DeviceLocation.objects.update_or_create(
-            device_id=device_id,
-            defaults={
-                "lat": data.get("lat"),
-                "lon": data.get("lon"),
-                "city": data.get("city", "Unknown"),
-                "state": data.get("regionName", "Unknown"),
-                "country": data.get("country", ""),
-                "zip_code": data.get("zip", ""),
-            }
-        )
+#         DeviceLocation.objects.update_or_create(
+#             device_id=device_id,
+#             defaults={
+#                 "lat": data.get("lat"),
+#                 "lon": data.get("lon"),
+#                 "city": data.get("city", "Unknown"),
+#                 "state": data.get("regionName", "Unknown"),
+#                 "country": data.get("country", ""),
+#                 "zip_code": data.get("zip", ""),
+#             }
+#         )
 
-        return json_response(
-            True,
-            "Location saved from IP",
-            city=data.get("city"),
-            state=data.get("regionName"),
-            country=data.get("country"),
-            zip_code=data.get("zip"),
-            source="ip",
-        )
+#         return json_response(
+#             True,
+#             "Location saved from IP",
+#             city=data.get("city"),
+#             state=data.get("regionName"),
+#             country=data.get("country"),
+#             zip_code=data.get("zip"),
+#             source="ip",
+#         )
 
-    except Exception as e:
-        return json_response(
-            False,
-            "IP location error",
-            error=str(e),
-            status_code=500,
-        )
+#     except Exception as e:
+#         return json_response(
+#             False,
+#             "IP location error",
+#             error=str(e),
+#             status_code=500,
+#         )
 
 
 @csrf_exempt
@@ -269,77 +269,76 @@ def record_wash(request):
     # This might not be needed if we rely solely on MQTT, but good to have API backup
     pass
 
-def get_client_ip(request):
-    """
-    Get real client IP even behind nginx / proxy
-    """
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for:
-        # First IP is the real client
-        return x_forwarded_for.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+# def get_client_ip(request):
+#     """
+#     Get real client IP even behind nginx / proxy
+#     """
+#     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+#     if x_forwarded_for:
+#         # First IP is the real client
+#         return x_forwarded_for.split(",")[0].strip()
+#     return request.META.get("REMOTE_ADDR")
 
 
-def complete_setup(request):
-    """
-    Renders the device setup completion page
-    """
-    device_id = request.GET.get('device_id')
-    if not device_id:
-        return HttpResponse("Device ID is required", status=400)
+# def complete_setup(request):
+#     """
+#     Renders the device setup completion page
+#     """
+#     device_id = request.GET.get('device_id')
+#     if not device_id:
+#         return HttpResponse("Device ID is required", status=400)
         
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Setup Complete</title>
-      <style>
-        body { font-family: Arial; text-align: center; padding: 40px; }
-        h2 { color: #1e90ff; }
-      </style>
-    </head>
-    <body>
-      <h2>🎉 Setup Almost Complete</h2>
-      <p>We're setting up weather & solar analytics.</p>
-      <p>Device ID: %s</p>
-      <script>
-      const deviceId = "%s";
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            fetch("/api/device/location", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                device_id: deviceId,
-                lat: pos.coords.latitude,
-                lon: pos.coords.longitude
-              })
-            }).then(() => {
-              document.body.innerHTML =
-                "<h2>✅ Setup Complete</h2><p>You can now use the app.</p>";
-            }).catch(err => {
-              document.body.innerHTML =
-                "<h2>⚠️ Error</h2><p>Failed to save location. Please try again.</p>";
-            });
-          },
-          err => {
-            document.body.innerHTML =
-              "<h2>⚠️ Location Required</h2><p>Please allow location for accurate data.</p>";
-          }
-        );
-      } else {
-        document.body.innerHTML =
-          "<h2>⚠️ Location Not Supported</h2><p>Your browser doesn't support geolocation.</p>";
-      }
-      </script>
-    </body>
-    </html>
-    """ % (device_id, device_id)
+#     html_content = """
+#     <!DOCTYPE html>
+#     <html>
+#     <head>
+#       <meta name="viewport" content="width=device-width, initial-scale=1">
+#       <title>Setup Complete</title>
+#       <style>
+#         body { font-family: Arial; text-align: center; padding: 40px; }
+#         h2 { color: #1e90ff; }
+#       </style>
+#     </head>
+#     <body>
+#       <h2>🎉 Setup Almost Complete</h2>
+#       <p>We're setting up weather & solar analytics.</p>
+#       <p>Device ID: %s</p>
+#       <script>
+#       const deviceId = "%s";
+#       if (navigator.geolocation) {
+#         navigator.geolocation.getCurrentPosition(
+#           pos => {
+#             fetch("/api/device/location", {
+#               method: "POST",
+#               headers: { "Content-Type": "application/json" },
+#               body: JSON.stringify({
+#                 device_id: deviceId,
+#                 lat: pos.coords.latitude,
+#                 lon: pos.coords.longitude
+#               })
+#             }).then(() => {
+#               document.body.innerHTML =
+#                 "<h2>✅ Setup Complete</h2><p>You can now use the app.</p>";
+#             }).catch(err => {
+#               document.body.innerHTML =
+#                 "<h2>⚠️ Error</h2><p>Failed to save location. Please try again.</p>";
+#             });
+#           },
+#           err => {
+#             document.body.innerHTML =
+#               "<h2>⚠️ Location Required</h2><p>Please allow location for accurate data.</p>";
+#           }
+#         );
+#       } else {
+#         document.body.innerHTML =
+#           "<h2>⚠️ Location Not Supported</h2><p>Your browser doesn't support geolocation.</p>";
+#       }
+#       </script>
+#     </body>
+#     </html>
+#     """ % (device_id, device_id)
     
-    return HttpResponse(html_content)
-
+#     return HttpResponse(html_content)
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -347,23 +346,64 @@ def save_device_location(request):
     try:
         data = json.loads(request.body)
         device_id = data.get("device_id")
-        lat = data.get("lat")
-        lon = data.get("lon")
 
-        if not device_id or lat is None or lon is None:
-            return JsonResponse({"status": False, "message": "Missing required fields"}, status=400)
+        if not device_id:
+            return JsonResponse(
+                {"status": False, "message": "device_id required"},
+                status=400
+            )
+
+        ip = get_client_ip(request)
+        lat, lon, city, country = city_from_ip(ip)
 
         DeviceLocation.objects.update_or_create(
             device_id=device_id,
             defaults={
                 "lat": lat,
                 "lon": lon,
+                "city": city,
+                "country": country,
+                "source": "ip",
                 "last_updated": timezone.now()
             }
         )
-        return JsonResponse({"status": True, "message": "Location saved successfully"})
-        
+
+        return JsonResponse({
+            "status": True,
+            "city": city,
+            "country": country,
+            "source": "ip"
+        })
+
     except json.JSONDecodeError:
-        return JsonResponse({"status": False, "message": "Invalid JSON"}, status=400)
+        return JsonResponse(
+            {"status": False, "message": "Invalid JSON"},
+            status=400
+        )
     except Exception as e:
-        return JsonResponse({"status": False, "message": str(e)}, status=500)
+        return JsonResponse(
+            {"status": False, "message": str(e)},
+            status=500
+        )
+
+import requests
+
+def city_from_ip(ip):
+    r = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
+    data = r.json()
+
+    if data.get("status") != "success":
+        return None, None, None, None
+
+    return (
+        data.get("lat"),
+        data.get("lon"),
+        data.get("city"),
+        data.get("country")
+    )
+
+def get_client_ip(request):
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
