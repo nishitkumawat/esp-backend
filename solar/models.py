@@ -36,7 +36,7 @@ class WashRecord(models.Model):
         return f"{self.device_id} - {self.wash_type} - {self.timestamp}"
 
 class DeviceLocation(models.Model):
-    """Stores geolocation information for each device"""
+    """Stores geolocation information for each device    """
     device_id = models.CharField(max_length=100, unique=True, db_index=True)
     lat = models.FloatField()
     lon = models.FloatField()
