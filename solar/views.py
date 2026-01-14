@@ -1,7 +1,8 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Avg
 from django.utils import timezone
+from django.views.decorators.http import require_http_methods
 from datetime import timedelta
 import json
 import requests
@@ -277,3 +278,92 @@ def get_client_ip(request):
         # First IP is the real client
         return x_forwarded_for.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
+
+
+def complete_setup(request):
+    """
+    Renders the device setup completion page
+    """
+    device_id = request.GET.get('device_id')
+    if not device_id:
+        return HttpResponse("Device ID is required", status=400)
+        
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Setup Complete</title>
+      <style>
+        body { font-family: Arial; text-align: center; padding: 40px; }
+        h2 { color: #1e90ff; }
+      </style>
+    </head>
+    <body>
+      <h2>🎉 Setup Almost Complete</h2>
+      <p>We're setting up weather & solar analytics.</p>
+      <p>Device ID: %s</p>
+      <script>
+      const deviceId = "%s";
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            fetch("/api/device/location", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                device_id: deviceId,
+                lat: pos.coords.latitude,
+                lon: pos.coords.longitude
+              })
+            }).then(() => {
+              document.body.innerHTML =
+                "<h2>✅ Setup Complete</h2><p>You can now use the app.</p>";
+            }).catch(err => {
+              document.body.innerHTML =
+                "<h2>⚠️ Error</h2><p>Failed to save location. Please try again.</p>";
+            });
+          },
+          err => {
+            document.body.innerHTML =
+              "<h2>⚠️ Location Required</h2><p>Please allow location for accurate data.</p>";
+          }
+        );
+      } else {
+        document.body.innerHTML =
+          "<h2>⚠️ Location Not Supported</h2><p>Your browser doesn't support geolocation.</p>";
+      }
+      </script>
+    </body>
+    </html>
+    """ % (device_id, device_id)
+    
+    return HttpResponse(html_content)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_device_location(request):
+    try:
+        data = json.loads(request.body)
+        device_id = data.get("device_id")
+        lat = data.get("lat")
+        lon = data.get("lon")
+
+        if not device_id or lat is None or lon is None:
+            return JsonResponse({"status": False, "message": "Missing required fields"}, status=400)
+
+        DeviceLocation.objects.update_or_create(
+            device_id=device_id,
+            defaults={
+                "lat": lat,
+                "lon": lon,
+                "last_updated": timezone.now()
+            }
+        )
+        return JsonResponse({"status": True, "message": "Location saved successfully"})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"status": False, "message": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"status": False, "message": str(e)}, status=500)
