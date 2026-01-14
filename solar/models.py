@@ -8,8 +8,7 @@ class SolarHourlyData(models.Model):
     current = models.FloatField()
     power = models.FloatField()
     energy = models.FloatField()
-    lat = models.FloatField(null=True, blank=True)
-    lon = models.FloatField(null=True, blank=True)
+    # Removed lat/lon as they are now in DeviceLocation
 
     class Meta:
         indexes = [

@@ -42,14 +42,6 @@ class Command(BaseCommand):
                     logger.warning("Missing device_id in payload")
                     return
 
-                # ================= GET DEVICE LOCATION =================
-                location = DeviceLocation.objects.filter(
-                    device_id=device_id
-                ).first()
-
-                lat = location.lat if location else None
-                lon = location.lon if location else None
-
                 # ================= SAVE DATA =================
                 if topic.endswith("/hourly"):
                     SolarHourlyData.objects.create(
@@ -58,8 +50,6 @@ class Command(BaseCommand):
                         current=current,
                         power=power,
                         energy=power,  # avg W over hour (you can refine later)
-                        lat=lat,
-                        lon=lon,
                     )
                     print(f"✓ Hourly data saved for {device_id} ({power} W)")
 

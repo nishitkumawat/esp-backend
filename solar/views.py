@@ -5,7 +5,7 @@ from django.utils import timezone
 from datetime import timedelta
 import json
 import requests
-from .models import SolarHourlyData, WashRecord
+from .models import SolarHourlyData, WashRecord, DeviceLocation
 
 def json_response(status: bool, message: str, status_code: int = 200, **extra):
     payload = {"status": status, "message": message}
@@ -106,42 +106,20 @@ def get_solar_stats(request):
             # (or we could show it as orphaned, but user prompt implies strictness "enter just after its before")
             
     # Fetch Location and Temperature
-    location_data = {"city": "Unknown", "state": "Unknown", "temperature": None}
-    # Find the latest record THAT HAS LOCATION data
-    last_data = SolarHourlyData.objects.filter(device_id=device_id, lat__isnull=False).order_by('-timestamp').first()
+    location_data = {"city": "Unknown", "state": "Unknown", "temperature": None, "lat": None, "lon": None}
     
-    if last_data:
-        # Store lat/lon for potential use
-        location_data["lat"] = last_data.lat
-        location_data["lon"] = last_data.lon
-        
-        # Fetch location (city, state) using reverse geocoding
-        try:
-            from geopy.geocoders import Nominatim
-            geolocator = Nominatim(user_agent="machmate_solar_app")
-            # timeout is important so we don't block too long
-            location = geolocator.reverse((last_data.lat, last_data.lon), language='en', timeout=2)
-            
-            if location:
-                address = location.raw.get('address', {})
-                city = (address.get('city') or 
-                        address.get('town') or 
-                        address.get('village') or 
-                        address.get('municipality') or
-                        address.get('suburb') or 
-                        address.get('state_district') or 
-                        address.get('county') or 
-                        "Unknown Location")
-                state = address.get('state') or ""
-                location_data["city"] = city
-                location_data["state"] = state
-                
-        except Exception as e:
-            print(f"Geocoding error: {e}")
+    # Get location from DeviceLocation table
+    location_obj = DeviceLocation.objects.filter(device_id=device_id).first()
+    
+    if location_obj:
+        location_data["city"] = location_obj.city
+        location_data["state"] = location_obj.state
+        location_data["lat"] = location_obj.lat
+        location_data["lon"] = location_obj.lon
         
         # Fetch temperature and weather_code from weather API
         try:
-            weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={last_data.lat}&longitude={last_data.lon}&current=temperature_2m,weather_code"
+            weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={location_obj.lat}&longitude={location_obj.lon}&current=temperature_2m,weather_code"
             weather_response = requests.get(weather_url, timeout=3)
             
             if weather_response.status_code == 200:
@@ -162,6 +140,54 @@ def get_solar_stats(request):
         current_power = latest_reading.power
 
     return json_response(True, "Stats fetched", data=data_points, wash=wash_data, location=location_data, current_power=current_power)
+
+@csrf_exempt
+def ping_location(request):
+    """
+    ESP pings this on startup: /api/solar/ping?device_id=...
+    Backend fetches location from IP and updates DeviceLocation.
+    """
+    device_id = request.GET.get('device_id')
+    if not device_id:
+        return json_response(False, "Missing device_id", status_code=400)
+    
+    # Get public IP
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    
+    # For local testing, handle loopback
+    if ip == '127.0.0.1' or ip == '::1' or ip.startswith('192.168.'):
+        # We can't geolocate local IPs, so we'll just acknowledge the ping
+        return json_response(True, "Ping received (Internal/Local IP)", ip=ip)
+
+    try:
+        # Use ip-api.com (free for non-commercial use, 45 requests/min)
+        response = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                DeviceLocation.objects.update_or_create(
+                    device_id=device_id,
+                    defaults={
+                        'lat': data.get('lat'),
+                        'lon': data.get('lon'),
+                        'city': data.get('city', 'Unknown'),
+                        'state': data.get('regionName', 'Unknown'),
+                        'country': data.get('country', ''),
+                        'zip_code': data.get('zip', ''),
+                    }
+                )
+                return json_response(True, "Location updated", city=data.get('city'), ip=ip)
+            else:
+                return json_response(False, f"IP Geolocation failed: {data.get('message')}", ip=ip)
+    except Exception as e:
+        print(f"IP-based Geolocation error: {e}")
+        return json_response(False, f"Error updating location: {str(e)}", status_code=500)
+        
+    return json_response(False, "Failed to update location", status_code=500)
 
 @csrf_exempt
 def record_wash(request):
