@@ -1,6 +1,6 @@
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Avg
+from django.db.models import Avg, Max
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from datetime import timedelta
@@ -15,9 +15,32 @@ def json_response(status: bool, message: str, status_code: int = 200, **extra):
     return JsonResponse(payload, status=status_code)
 
 @csrf_exempt
+def get_latest_solar_data(request):
+    """
+    GET /api/solar/latest?device_id=...
+    Returns the most recent solar data point
+    """
+    device_id = request.GET.get('device_id')
+    
+    if not device_id:
+        return json_response(False, "Missing device_id", status_code=400)
+    
+    try:
+        latest = SolarHourlyData.objects.filter(device_id=device_id).latest('timestamp')
+        return json_response(True, "Success", data={
+            "timestamp": latest.timestamp.isoformat(),
+            "power": latest.power,
+            "voltage": latest.voltage,
+            "current": latest.current,
+            "energy": latest.energy
+        })
+    except SolarHourlyData.DoesNotExist:
+        return json_response(False, "No data available", status_code=404)
+
+@csrf_exempt
 def get_solar_stats(request):
     """
-    GET /api/solar/stats?device_id=...&period=day|month
+    GET /api/solar/stats?device_id=...&period=day|month|year
     """
     device_id = request.GET.get('device_id')
     period = request.GET.get('period', 'day') # day, month
@@ -372,7 +395,7 @@ def save_device_location(request):
                 "city": city,
                 "lat": lat,
                 "lon": lon,
-                "source": "manual",
+               #"source": "manual",
                 "last_updated": timezone.now()
             }
         )
