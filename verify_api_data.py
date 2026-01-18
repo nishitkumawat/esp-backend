@@ -1,43 +1,62 @@
-import requests
-import json
+from datetime import datetime, timedelta
+import random
+import os
+import django
 
-# Adjust URL based on where the django server is running. usually localhost:8000
-url = "https://api.ezrun.in/api/solar/stats"
-params = {
-    "device_id": "1CSNISHITKUMAWAT",
-    "period": "day"
-}
+from django.utils import timezone
+# ✅ SET DJANGO SETTINGS MODULE
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
+django.setup()
 
-try:
-    print(f"Fetching from {url} with params {params}...")
-    response = requests.get(url, params=params, timeout=5)
-    
-    if response.status_code == 200:
-        data = response.json()
-        print("\n--- API RESPONSE SUCCESS ---")
-        
-        # Check Location
-        loc = data.get('location', {})
-        print(f"Location Object keys: {loc.keys()}")
-        print(f"Location Data: {loc}")
-        
-        if 'lat' not in loc:
-             print("!!! FAILURE: 'lat' key missing in live response. Backend code NOT updated on live server. !!!")
-        else:
-             print("SUCCESS: 'lat' key present. Backend code likely updated.")
-        
-        # Check Data Points
-        points = data.get('data', [])
-        print(f"Data Points Count: {len(points)}")
-        if points:
-            print(f"Sample Point: {points[0]}")
-            print(f"Latest Point: {points[-1]}")
-            
-        print("----------------------------")
+from solar.models import SolarHourlyData
+
+from solar.models import SolarHourlyData  # your app name is solar
+
+DEVICE_ID = "4CSNISHITKUMAWAT"
+
+def generate_month(year, month):
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
     else:
-        print(f"--- API FAILED: {response.status_code} ---")
-        print(response.text)
+        end_date = datetime(year, month + 1, 1)
 
-except Exception as e:
-    print(f"--- EXCEPTION: {e} ---")
-    print("Ensure the Django server is running on port 8000!")
+    current_day = start_date
+
+    while current_day < end_date:
+        base_peak_power = random.randint(2100, 2400)
+
+        for hour in range(6, 19):  # 06:00 to 18:00
+            progress = abs(12 - hour)
+            power_factor = max(0.2, 1 - (progress / 7))
+
+            power = int(base_peak_power * power_factor * random.uniform(0.95, 1.05))
+            voltage = round(random.uniform(28, 40), 1)
+            current = round(power / voltage, 1)
+
+            SolarHourlyData.objects.create(
+                device_id=DEVICE_ID,
+                timestamp=timezone.make_aware(
+                    datetime(
+                        current_day.year,
+                        current_day.month,
+                        current_day.day,
+                        hour,
+                        0
+                    )
+                ),
+                voltage=voltage,
+                current=current,
+                power=power,
+                energy=power
+            )
+
+        current_day += timedelta(days=1)
+
+    print(f"Data generated for {year}-{month:02d}")
+
+# Generate December 2025
+generate_month(2025, 12)
+
+# Generate January 2026
+generate_month(2026, 1)

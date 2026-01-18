@@ -69,12 +69,23 @@ def get_solar_stats(request):
     data_points = []
     total_yield = 0.0
     avg_power = 0.0
+    avg_energy = 0.0
+    today_yield = 0.0
 
     # Fetch Location, Price and Capacity
     location_obj = DeviceLocation.objects.filter(device_id=device_id).first()
     price_per_unit = 5.0
     if location_obj:
         price_per_unit = location_obj.price
+
+    # Real Today yield (Independent of period)
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    today_yield = SolarHourlyData.objects.filter(
+        device_id=device_id, 
+        timestamp__range=(today_start, today_end)
+    ).aggregate(models.Sum('power'))['power__sum'] or 0.0
 
     # ===================== DAY =====================
     if period == "day":
@@ -109,6 +120,8 @@ def get_solar_stats(request):
             # Assuming hourly data points, sum of power is Wh
             total_yield = sum(powers)
             avg_power = sum(powers) / len(powers)
+            avg_energy = total_yield # For a day, avg energy is the yield itself? Or avg per hour?
+            # Let's say avg_energy is yield per unit of the period. For day, it's just yield.
 
     # ===================== MONTH =====================
     elif period == "month":
@@ -127,7 +140,7 @@ def get_solar_stats(request):
             .filter(device_id=device_id, timestamp__range=(start_time, end_time))
             .annotate(day=TruncDay("timestamp"))
             .values("day")
-            .annotate(avg_p=Avg("power"))
+            .annotate(daily_sum=Sum("power"))
             .order_by("day")
         )
 
@@ -136,20 +149,15 @@ def get_solar_stats(request):
         for item in qs:
             data_points.append({
                 "time": item["day"].strftime("%d-%b"),
-                "power": round(item["avg_p"], 2)
+                "power": round(item["daily_sum"], 2)
             })
-            total_p += item["avg_p"]
+            total_p += item["daily_sum"]
             count += 1
         
         if count > 0:
-            # For month, yield is roughly sum of hourly power, but we have daily averages here.
-            # It's better to fetch all hourly for yield or use avg * 24 * days.
-            # Let's get actual sum from hourly data for accuracy.
-            total_yield = SolarHourlyData.objects.filter(
-                device_id=device_id, 
-                timestamp__range=(start_time, end_time)
-            ).aggregate(models.Sum('power'))['power__sum'] or 0.0
-            avg_power = total_p / count
+            total_yield = total_p
+            avg_power = total_p / (count * 24) # Approximate average power
+            avg_energy = total_p / count # Average daily yield
 
     # ===================== YEAR =====================
     elif period == "year":
@@ -167,7 +175,7 @@ def get_solar_stats(request):
             .filter(device_id=device_id, timestamp__range=(start_time, end_time))
             .annotate(month=TruncMonth("timestamp"))
             .values("month")
-            .annotate(avg_p=Avg("power"))
+            .annotate(monthly_sum=Sum("power"))
             .order_by("month")
         )
 
@@ -176,8 +184,15 @@ def get_solar_stats(request):
         for item in qs:
             data_points.append({
                 "time": item["month"].strftime("%b"),
-                "power": round(item["avg_p"], 2)
+                "power": round(item["monthly_sum"], 2)
             })
+            total_p += item["monthly_sum"]
+            count += 1
+        
+        if count > 0:
+            total_yield = total_p
+            avg_power = total_p / (count * 30 * 24) # Very approximate
+            avg_energy = total_p / count # Average monthly yield
             total_p += item["avg_p"]
             count += 1
             
@@ -241,13 +256,15 @@ def get_solar_stats(request):
         current_power = latest_reading.power
 
     return json_response(
-        True, "Stats fetched", 
-        data=data_points, 
-        wash=wash_data, 
-        location=location_data, 
+        True, "Stats fetched",
+        data=data_points,
+        wash=wash_data,
+        location=location_data,
         current_power=current_power,
         period_yield=round(total_yield, 2),
         avg_power=round(avg_power, 2),
+        avg_energy=round(avg_energy, 2),
+        today_yield=round(today_yield, 2),
         money_saved=round(money_saved, 2)
     )
 
