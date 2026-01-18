@@ -1,12 +1,16 @@
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Avg, Max
+from django.db.models import Avg
+from django.db.models.functions import TruncDay, TruncMonth
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
-from datetime import timedelta
+from datetime import datetime, timedelta
+import calendar
 import json
 import requests
+
 from .models import SolarHourlyData, WashRecord, DeviceLocation
+
 
 def json_response(status: bool, message: str, status_code: int = 200, **extra):
     payload = {"status": status, "message": message}
@@ -63,12 +67,21 @@ def get_solar_stats(request):
         return json_response(False, "device_id and period are required", status_code=400)
 
     data_points = []
+    total_yield = 0.0
+    avg_power = 0.0
+
+    # Fetch Location, Price and Capacity
+    location_obj = DeviceLocation.objects.filter(device_id=device_id).first()
+    price_per_unit = 5.0
+    if location_obj:
+        price_per_unit = location_obj.price
 
     # ===================== DAY =====================
     if period == "day":
         date_str = request.GET.get("date")  # YYYY-MM-DD
         if not date_str:
-            return json_response(False, "date is required for day period", 400)
+            # Default to today if not provided
+            date_str = timezone.now().strftime("%Y-%m-%d")
 
         selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
@@ -84,17 +97,24 @@ def get_solar_stats(request):
             timestamp__range=(start_time, end_time)
         ).order_by("timestamp")
 
+        powers = []
         for item in qs:
             data_points.append({
                 "time": item.timestamp.strftime("%H:%M"),
                 "power": item.power
             })
+            powers.append(item.power)
+        
+        if powers:
+            # Assuming hourly data points, sum of power is Wh
+            total_yield = sum(powers)
+            avg_power = sum(powers) / len(powers)
 
     # ===================== MONTH =====================
     elif period == "month":
         month_str = request.GET.get("month")  # YYYY-MM
         if not month_str:
-            return json_response(False, "month is required for month period", 400)
+            month_str = timezone.now().strftime("%Y-%m")
 
         year, month = map(int, month_str.split("-"))
 
@@ -107,21 +127,35 @@ def get_solar_stats(request):
             .filter(device_id=device_id, timestamp__range=(start_time, end_time))
             .annotate(day=TruncDay("timestamp"))
             .values("day")
-            .annotate(avg_power=Avg("power"))
+            .annotate(avg_p=Avg("power"))
             .order_by("day")
         )
 
+        total_p = 0
+        count = 0
         for item in qs:
             data_points.append({
                 "time": item["day"].strftime("%d-%b"),
-                "power": round(item["avg_power"], 2)
+                "power": round(item["avg_p"], 2)
             })
+            total_p += item["avg_p"]
+            count += 1
+        
+        if count > 0:
+            # For month, yield is roughly sum of hourly power, but we have daily averages here.
+            # It's better to fetch all hourly for yield or use avg * 24 * days.
+            # Let's get actual sum from hourly data for accuracy.
+            total_yield = SolarHourlyData.objects.filter(
+                device_id=device_id, 
+                timestamp__range=(start_time, end_time)
+            ).aggregate(models.Sum('power'))['power__sum'] or 0.0
+            avg_power = total_p / count
 
     # ===================== YEAR =====================
     elif period == "year":
         year_str = request.GET.get("year")  # YYYY
         if not year_str:
-            return json_response(False, "year is required for year period", 400)
+            year_str = timezone.now().strftime("%Y")
 
         year = int(year_str)
 
@@ -133,28 +167,38 @@ def get_solar_stats(request):
             .filter(device_id=device_id, timestamp__range=(start_time, end_time))
             .annotate(month=TruncMonth("timestamp"))
             .values("month")
-            .annotate(avg_power=Avg("power"))
+            .annotate(avg_p=Avg("power"))
             .order_by("month")
         )
 
+        total_p = 0
+        count = 0
         for item in qs:
             data_points.append({
                 "time": item["month"].strftime("%b"),
-                "power": round(item["avg_power"], 2)
+                "power": round(item["avg_p"], 2)
             })
+            total_p += item["avg_p"]
+            count += 1
+            
+        if count > 0:
+            total_yield = SolarHourlyData.objects.filter(
+                device_id=device_id, 
+                timestamp__range=(start_time, end_time)
+            ).aggregate(models.Sum('power'))['power__sum'] or 0.0
+            avg_power = total_p / count
+
+    money_saved = (total_yield / 1000.0) * price_per_unit
 
     wash_records = WashRecord.objects.filter(device_id=device_id).order_by('-timestamp')
     
     wash_data = {'before': None, 'after': None}
     
-    # Iterate to find the first 'AFTER' wash
     for i, record in enumerate(wash_records):
         if record.wash_type == 'AFTER':
-            # Look ahead (which is future in list index, but past in time) for immediately preceding record
             if i + 1 < len(wash_records):
-                prev_record = wash_records[i+1] # The one before this 'AFTER'
+                prev_record = wash_records[i+1]
                 if prev_record.wash_type == 'BEFORE':
-                    # Found our pair
                     wash_data['after'] = {
                         "voltage": record.voltage,
                         "current": record.current,
@@ -167,28 +211,20 @@ def get_solar_stats(request):
                         "power": prev_record.power,
                         "timestamp": prev_record.timestamp.isoformat()
                     }
-                    break # Stop after finding the latest valid pair
+                    break
             
-            # If we found an AFTER but no immediately preceding BEFORE, we ignore it 
-            # (or we could show it as orphaned, but user prompt implies strictness "enter just after its before")
-            
-    # Fetch Location and Temperature
-    location_data = {"city": "Unknown", "state": "Unknown", "temperature": None, "lat": None, "lon": None}
-    
-    # Get location from DeviceLocation table
-    location_obj = DeviceLocation.objects.filter(device_id=device_id).first()
-    
+    location_data = {"city": "Unknown", "state": "Unknown", "temperature": None, "lat": None, "lon": None, "price": price_per_unit, "capacity": 5.0}
     if location_obj:
         location_data["city"] = location_obj.city
         location_data["state"] = location_obj.state
         location_data["lat"] = location_obj.lat
         location_data["lon"] = location_obj.lon
+        location_data["price"] = location_obj.price
+        location_data["capacity"] = location_obj.capacity
         
-        # Fetch temperature and weather_code from weather API
         try:
             weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={location_obj.lat}&longitude={location_obj.lon}&current=temperature_2m,weather_code"
             weather_response = requests.get(weather_url, timeout=3)
-            
             if weather_response.status_code == 200:
                 weather_data = weather_response.json()
                 if 'current' in weather_data:
@@ -196,17 +232,75 @@ def get_solar_stats(request):
                         location_data["temperature"] = weather_data['current']['temperature_2m']
                     if 'weather_code' in weather_data['current']:
                         location_data["weather_code"] = weather_data['current']['weather_code']
-                    
         except Exception as e:
             print(f"Weather API error: {e}")
     
-    # Fetch current power (most recent reading)
     current_power = 0.0
     latest_reading = SolarHourlyData.objects.filter(device_id=device_id).order_by('-timestamp').first()
     if latest_reading:
         current_power = latest_reading.power
 
-    return json_response(True, "Stats fetched", data=data_points, wash=wash_data, location=location_data, current_power=current_power)
+    return json_response(
+        True, "Stats fetched", 
+        data=data_points, 
+        wash=wash_data, 
+        location=location_data, 
+        current_power=current_power,
+        period_yield=round(total_yield, 2),
+        avg_power=round(avg_power, 2),
+        money_saved=round(money_saved, 2)
+    )
+
+from .models import SolarAlert
+
+@csrf_exempt
+def get_solar_alerts(request):
+    device_id = request.GET.get('device_id')
+    if not device_id:
+        return json_response(False, "device_id is required", status_code=400)
+    
+    alerts = SolarAlert.objects.filter(device_id=device_id)[:50]
+    data = []
+    for a in alerts:
+        data.append({
+            "id": a.id,
+            "title": a.title,
+            "message": a.message,
+            "alert_type": a.alert_type,
+            "timestamp": a.timestamp.isoformat()
+        })
+    
+    return json_response(True, "Alerts fetched", alerts=data)
+
+def create_solar_alert(device_id, title, message, alert_type='info'):
+    SolarAlert.objects.create(
+        device_id=device_id,
+        title=title,
+        message=message,
+        alert_type=alert_type
+    )
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def record_wash_alert(request):
+    """
+    Called when a wash is triggered to record an alert.
+    """
+    try:
+        data = json.loads(request.body)
+        device_id = data.get("device_id")
+        if not device_id:
+            return json_response(False, "device_id is required", status_code=400)
+        
+        create_solar_alert(
+            device_id=device_id,
+            title="Solar Cleaning Started",
+            message=f"A cleaning cycle has been triggered for device {device_id}.",
+            alert_type="success"
+        )
+        return json_response(True, "Alert recorded")
+    except Exception as e:
+        return json_response(False, str(e), status_code=500)
 
 # @csrf_exempt
 # def ping_location(request):

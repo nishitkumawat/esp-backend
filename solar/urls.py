@@ -7,4 +7,6 @@ urlpatterns = [
     # path('ping', views.ping_location, name='solar_ping'),
     # path('device/complete-setup', views.complete_setup, name='complete_setup'),
     path('location-ping/', views.save_device_location, name='save_device_location'),
+    path('alerts', views.get_solar_alerts, name='solar_alerts'),
+    path('record-wash-alert', views.record_wash_alert, name='record_wash_alert'),
 ]
