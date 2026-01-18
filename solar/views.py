@@ -118,11 +118,10 @@ def get_solar_stats(request):
             powers.append(item.power)
         
         if powers:
-            # Assuming hourly data points, sum of power is Wh
             total_yield = sum(powers)
-            avg_power = sum(powers) / len(powers)
-            avg_energy = total_yield # For a day, avg energy is the yield itself? Or avg per hour?
-            # Let's say avg_energy is yield per unit of the period. For day, it's just yield.
+            avg_power = total_yield / len(powers)
+            # Avg Energy is average Wh per hour for the day
+            avg_energy = total_yield / len(powers) if len(powers) > 0 else 0.0
 
     # ===================== MONTH =====================
     elif period == "month":
@@ -157,8 +156,8 @@ def get_solar_stats(request):
         
         if count > 0:
             total_yield = total_p
-            avg_power = total_p / (count * 24) # Approximate average power
-            avg_energy = total_p / count # Average daily yield
+            avg_power = total_p / (count * 24)
+            avg_energy = total_p / count # Average per day
 
     # ===================== YEAR =====================
     elif period == "year":
@@ -192,8 +191,8 @@ def get_solar_stats(request):
         
         if count > 0:
             total_yield = total_p
-            avg_power = total_p / (count * 30 * 24) # Very approximate
-            avg_energy = total_p / count # Average monthly yield
+            avg_power = total_p / (count * 30 * 24)
+            avg_energy = total_p / count # Average per month
 
     money_saved = (total_yield / 1000.0) * price_per_unit
 
