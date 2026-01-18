@@ -1,6 +1,7 @@
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Avg
+from django.db import models
+from django.db.models import Avg, Sum
 from django.db.models.functions import TruncDay, TruncMonth
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -193,15 +194,6 @@ def get_solar_stats(request):
             total_yield = total_p
             avg_power = total_p / (count * 30 * 24) # Very approximate
             avg_energy = total_p / count # Average monthly yield
-            total_p += item["avg_p"]
-            count += 1
-            
-        if count > 0:
-            total_yield = SolarHourlyData.objects.filter(
-                device_id=device_id, 
-                timestamp__range=(start_time, end_time)
-            ).aggregate(models.Sum('power'))['power__sum'] or 0.0
-            avg_power = total_p / count
 
     money_saved = (total_yield / 1000.0) * price_per_unit
 
