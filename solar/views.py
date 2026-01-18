@@ -18,88 +18,131 @@ def json_response(status: bool, message: str, status_code: int = 200, **extra):
 def get_latest_solar_data(request):
     """
     GET /api/solar/latest?device_id=...
-    Returns the most recent solar data point
+    Always returns a response.
+    If no data exists, returns zeros with current timestamp.
     """
     device_id = request.GET.get('device_id')
-    
+
     if not device_id:
         return json_response(False, "Missing device_id", status_code=400)
-    
-    try:
-        latest = SolarHourlyData.objects.filter(device_id=device_id).latest('timestamp')
-        return json_response(True, "Success", data={
+
+    latest = (
+        SolarHourlyData.objects
+        .filter(device_id=device_id)
+        .order_by('-timestamp')
+        .first()
+    )
+
+    if latest:
+        data = {
             "timestamp": latest.timestamp.isoformat(),
             "power": latest.power,
             "voltage": latest.voltage,
             "current": latest.current,
             "energy": latest.energy
-        })
-    except SolarHourlyData.DoesNotExist:
-        return json_response(False, "No data available", status_code=404)
+        }
+    else:
+        # No data → return zero values
+        now = timezone.now()
+        data = {
+            "timestamp": now.isoformat(),
+            "power": 0,
+            "voltage": 0,
+            "current": 0,
+            "energy": 0
+        }
+
+    return json_response(True, "Success", data=data)
 
 @csrf_exempt
 def get_solar_stats(request):
-    """
-    GET /api/solar/stats?device_id=...&period=day|month|year
-    """
     device_id = request.GET.get('device_id')
-    period = request.GET.get('period', 'day') # day, month
-    
-    if not device_id:
-        return json_response(False, "Missing device_id", status_code=400)
+    period = request.GET.get('period')  # day | month | year
 
-    now = timezone.now()
-    
+    if not device_id or not period:
+        return json_response(False, "device_id and period are required", status_code=400)
+
     data_points = []
-    
-    if period == 'day':
-        # Last 24 hours hourly data
-        start_time = now - timedelta(hours=24)
+
+    # ===================== DAY =====================
+    if period == "day":
+        date_str = request.GET.get("date")  # YYYY-MM-DD
+        if not date_str:
+            return json_response(False, "date is required for day period", 400)
+
+        selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        start_time = timezone.make_aware(
+            datetime.combine(selected_date, datetime.min.time())
+        )
+        end_time = timezone.make_aware(
+            datetime.combine(selected_date, datetime.max.time())
+        )
+
         qs = SolarHourlyData.objects.filter(
-            device_id=device_id, 
-            timestamp__gte=start_time
-        ).order_by('timestamp')
-        
+            device_id=device_id,
+            timestamp__range=(start_time, end_time)
+        ).order_by("timestamp")
+
         for item in qs:
             data_points.append({
                 "time": item.timestamp.strftime("%H:%M"),
                 "power": item.power
             })
-            
-    elif period == 'month':
-        # Last 30 days, daily average
-        start_time = now - timedelta(days=30)
-        from django.db.models.functions import TruncDay
-        
-        qs = SolarHourlyData.objects.filter(
-            device_id=device_id,
-            timestamp__gte=start_time
-        ).annotate(date=TruncDay('timestamp')).values('date').annotate(avg_power=Avg('power')).order_by('date')
+
+    # ===================== MONTH =====================
+    elif period == "month":
+        month_str = request.GET.get("month")  # YYYY-MM
+        if not month_str:
+            return json_response(False, "month is required for month period", 400)
+
+        year, month = map(int, month_str.split("-"))
+
+        start_time = timezone.make_aware(datetime(year, month, 1))
+        last_day = calendar.monthrange(year, month)[1]
+        end_time = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+
+        qs = (
+            SolarHourlyData.objects
+            .filter(device_id=device_id, timestamp__range=(start_time, end_time))
+            .annotate(day=TruncDay("timestamp"))
+            .values("day")
+            .annotate(avg_power=Avg("power"))
+            .order_by("day")
+        )
 
         for item in qs:
             data_points.append({
-                "time": item['date'].strftime("%d-%b"), # 12-Jan
-                "power": round(item['avg_power'], 2)
+                "time": item["day"].strftime("%d-%b"),
+                "power": round(item["avg_power"], 2)
             })
 
-    elif period == 'year':
-        # Last 12 months, monthly average
-        start_time = now - timedelta(days=365)
-        from django.db.models.functions import TruncMonth
-        
-        qs = SolarHourlyData.objects.filter(
-            device_id=device_id,
-            timestamp__gte=start_time
-        ).annotate(month=TruncMonth('timestamp')).values('month').annotate(avg_power=Avg('power')).order_by('month')
+    # ===================== YEAR =====================
+    elif period == "year":
+        year_str = request.GET.get("year")  # YYYY
+        if not year_str:
+            return json_response(False, "year is required for year period", 400)
+
+        year = int(year_str)
+
+        start_time = timezone.make_aware(datetime(year, 1, 1))
+        end_time = timezone.make_aware(datetime(year, 12, 31, 23, 59, 59))
+
+        qs = (
+            SolarHourlyData.objects
+            .filter(device_id=device_id, timestamp__range=(start_time, end_time))
+            .annotate(month=TruncMonth("timestamp"))
+            .values("month")
+            .annotate(avg_power=Avg("power"))
+            .order_by("month")
+        )
 
         for item in qs:
             data_points.append({
-                "time": item['month'].strftime("%b-%y"), # Jan-24
-                "power": round(item['avg_power'], 2)
+                "time": item["month"].strftime("%b"),
+                "power": round(item["avg_power"], 2)
             })
 
-    # Fetch wash details with REVERSE logic (Find AFTER, then preceding BEFORE)
-    # Fetch all records DESCENDING (latest first)
     wash_records = WashRecord.objects.filter(device_id=device_id).order_by('-timestamp')
     
     wash_data = {'before': None, 'after': None}
