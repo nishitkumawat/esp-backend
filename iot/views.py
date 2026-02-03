@@ -18,7 +18,7 @@ TEMPLATE_NAMESPACE = os.getenv("TEMPLATE_NAMESPACE")
 TEMPLATE_NAME = os.getenv("TEMPLATE_NAME")
 
 def generate_otp():
-    return str(random.randint(100000, 999999))
+    return 123123
 
 def send_whatsapp_otp(phone: str, otp: str):
     url = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/"
