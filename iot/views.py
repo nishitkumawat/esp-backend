@@ -23,6 +23,7 @@ def generate_otp():
 def send_whatsapp_otp(phone: str, otp: str):
     url = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/"
 
+
     headers = {
         "Content-Type": "application/json",
         "authkey": MSG91_AUTH_KEY
