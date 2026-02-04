@@ -11,6 +11,7 @@ urlpatterns = [
     path("logout/", views.logout, name="iot-logout"),
     path("add_device/", views.add_device, name="iot-add-device"),
     path("my_devices/", views.my_devices, name="iot-my-devices"),
+    path("get_device_type/", views.get_device_type_view, name="iot-get-device-type"),
     path("rename_device/", views.rename_device, name="iot-rename-device"),
     path("change_admin/", views.change_admin, name="iot-change-admin"),
     path("control_device/", views.control_device, name="iot-control-device"),

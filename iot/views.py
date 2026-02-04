@@ -474,6 +474,14 @@ def get_device_type(device_code):
         return device_code[1:3].upper() if len(device_code) > 3 else "SM"
     return "SM"
 
+def get_device_type_view(request):
+    device_code = request.GET.get('device_code')
+    if not device_code:
+        return json_response(False, "Missing device_code")
+    
+    to_consider = get_device_type(device_code)
+    return json_response(True, "Device type fetched", to_consider=to_consider)
+
 # New helper: check if user already has access to device
 def _has_device_access(user_id, device_id):
     """Check if user already has access to the device"""
