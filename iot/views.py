@@ -457,6 +457,23 @@ def logout(request):
     return json_response(True, "Logged out")
 
 # -----------------------------
+def get_device_type(device_code):
+    """Helper to determine effective device type (checks ExtraDevice first, then prefix)"""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT to_consider FROM solar_extradevice WHERE device_id = %s", [device_code])
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+    except Exception:
+        pass
+    
+    if len(device_code) >= 3:
+        # Check for typical prefixes like 4CS..., 4SM..., 4OC...
+        # If it's 4CS..., return CS. If it's shorter, return SM.
+        return device_code[1:3].upper() if len(device_code) > 3 else "SM"
+    return "SM"
+
 # New helper: check if user already has access to device
 def _has_device_access(user_id, device_id):
     """Check if user already has access to the device"""
@@ -559,7 +576,8 @@ def add_device(request):
                 return json_response(
                     True,
                     "Access request sent to device admin",
-                    device_id=device_id
+                    device_id=device_id,
+                    to_consider=get_device_type(device_code)
                 )
 
             # 🚀 DEVICE DOES NOT EXIST → CREATE IT
@@ -582,7 +600,8 @@ def add_device(request):
             return json_response(
                 True,
                 "Device created and you are now the admin",
-                device_id=device_id
+                device_id=device_id,
+                to_consider=get_device_type(device_code)
             )
 
     except Exception as e:
@@ -608,9 +627,10 @@ def my_devices(request):
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT d.id, d.name, d.device_code, ud.role
+                SELECT d.id, d.name, d.device_code, ud.role, ed.to_consider
                 FROM iot_devices d
                 JOIN iot_user_devices ud ON d.id = ud.device_id
+                LEFT JOIN solar_extradevice ed ON d.device_code = ed.device_id
                 WHERE ud.user_id=%s
                 """,
                 [user_id],
@@ -621,7 +641,13 @@ def my_devices(request):
         return json_response(False, "Unable to fetch devices right now", status_code=500)
 
     devices = [
-        {"device_id": row[0], "name": row[1], "device_code": row[2], "role": row[3]}
+        {
+            "device_id": row[0],
+            "name": row[1],
+            "device_code": row[2],
+            "role": row[3],
+            "to_consider": row[4] if row[4] else get_device_type(row[2])
+        }
         for row in rows
     ]
     return json_response(True, "Devices fetched", devices=devices)

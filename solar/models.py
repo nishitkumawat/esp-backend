@@ -79,3 +79,10 @@ class SolarAlert(models.Model):
 
     def __str__(self):
         return f"{self.device_id} - {self.title} ({self.timestamp})"
+
+class ExtraDevice(models.Model):
+    device_id = models.CharField(max_length=100, unique=True, db_index=True)
+    to_consider = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.device_id} -> {self.to_consider}"
