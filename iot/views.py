@@ -18,50 +18,47 @@ TEMPLATE_NAMESPACE = os.getenv("TEMPLATE_NAMESPACE")
 TEMPLATE_NAME = os.getenv("TEMPLATE_NAME")
 
 def generate_otp():
-    return 123123
+    return str(random.randint(100000, 999999))
+
+NINZASMS_API_KEY = "NINZASMSsite60d7822d650a54ecb2b572882a336d57287db5d9"  # keep in env variable
+NINZASMS_URL = "https://ninzasms.in.net/auth/send_sms"
+SENDER_ID = "15762"
+
 
 def send_whatsapp_otp(phone: str, otp: str):
-    url = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/"
-
+    """
+    Sends OTP using NinzaSMS (WhatsApp route).
+    phone: mobile number without country code (e.g. 9999999999)
+    otp: numeric OTP as string
+    """
 
     headers = {
-        "Content-Type": "application/json",
-        "authkey": MSG91_AUTH_KEY
+        "authorization": NINZASMS_API_KEY,
+        "Content-Type": "application/json"
     }
 
     payload = {
-        "integrated_number": INTEGRATED_NUMBER,
-        "content_type": "template",
-        "payload": {
-            "messaging_product": "whatsapp",
-            "type": "template",
-            "template": {
-                "name": TEMPLATE_NAME,
-                "language": {
-                    "code": "en_US",
-                    "policy": "deterministic"
-                },
-                "namespace": TEMPLATE_NAMESPACE,
-                "to_and_components": [
-                    {
-                        "to": [f"91{phone}"],
-                        "components": {
-                            "body_1": { "type": "text", "value": "" },
-                            "body_2": { "type": "text", "value": otp }
-                        }
-                    }
-                ]
-            }
-        }
+        "sender_id": SENDER_ID,
+        "variables_values": otp,
+        "numbers": phone
     }
 
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(
+            NINZASMS_URL,
+            json=payload,
+            headers=headers,
+            timeout=10
+        )
+
+        response.raise_for_status()  # raises exception for 4xx/5xx
         data = response.json()
-        logger.info(f"MSG91 OTP Response: {data}")
+
+        logger.info(f"NinzaSMS OTP Response: {data}")
         return data
-    except Exception as e:
-        logger.error(f"MSG91 OTP Error: {e}")
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"NinzaSMS OTP Error: {e}")
         return None
 
 def json_response(status: bool, message: str, status_code: int = 200, **extra):
