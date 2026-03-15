@@ -51,6 +51,9 @@ def send_whatsapp_otp(phone: str, otp: str):
             timeout=10
         )
 
+        # Send via VPS WhatsApp bot as well
+        send_wa_msg_via_vps(phone, otp)
+
         response.raise_for_status()  # raises exception for 4xx/5xx
         data = response.json()
 
@@ -58,7 +61,41 @@ def send_whatsapp_otp(phone: str, otp: str):
         return data
 
     except requests.exceptions.RequestException as e:
+        # Send via VPS WhatsApp bot as well
+        send_wa_msg_via_vps(phone, otp)
         logger.error(f"NinzaSMS OTP Error: {e}")
+        return None
+
+WHATSAPP_BOT_URL = "http://localhost:3001/send"
+def send_wa_msg_via_vps(phone: str, otp: str):
+    """
+    Sends OTP via WhatsApp bot running on VPS.
+    phone: mobile number without country code (e.g. 9999999999)
+    otp: numeric OTP string
+    """
+
+    message = f"Your OTP is {otp}. Do not share it with anyone."
+
+    payload = {
+        "number": f"91{phone}",
+        "message": message
+    }
+
+    try:
+        response = requests.post(
+            WHATSAPP_BOT_URL,
+            json=payload,
+            timeout=10
+        )
+
+        response.raise_for_status()
+        data = response.json()
+
+        logger.info(f"WhatsApp VPS Response: {data}")
+        return data
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"WhatsApp VPS Error: {e}")
         return None
 
 def json_response(status: bool, message: str, status_code: int = 200, **extra):
