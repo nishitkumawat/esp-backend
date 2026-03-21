@@ -17,12 +17,13 @@ INTEGRATED_NUMBER = os.getenv("INTEGRATED_NUMBER")
 TEMPLATE_NAMESPACE = os.getenv("TEMPLATE_NAMESPACE")
 TEMPLATE_NAME = os.getenv("TEMPLATE_NAME")
 
+NINZASMS_API_KEY = os.getenv("NINZASMS_API_KEY")
+NINZASMS_URL = "https://ninzasms.in.net/auth/send_sms"
+SENDER_ID = os.getenv("NINZASMS_SENDER_ID") 
+
+
 def generate_otp():
     return str(random.randint(100000, 999999))
-
-NINZASMS_API_KEY = "NINZASMSsite60d7822d650a54ecb2b572882a336d57287db5d9"  # keep in env variable
-NINZASMS_URL = "https://ninzasms.in.net/auth/send_sms"
-SENDER_ID = "15762"
 
 
 def send_whatsapp_otp(phone: str, otp: str):
