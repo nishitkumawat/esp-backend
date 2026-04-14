@@ -52,3 +52,13 @@ class IotUserDevice(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.device} ({self.role})"
+
+
+class SGI(models.Model):
+    full_name = models.CharField(max_length=255, blank=True, default="")
+    company_name = models.CharField(max_length=255, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    contact_number = models.CharField(max_length=20, blank=True, default="")
+    requirement = models.TextField(blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)

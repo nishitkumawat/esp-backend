@@ -1155,3 +1155,83 @@ def resend_forgot_otp(request):
     except Exception as e:
         logger.exception("Resend forgot OTP failed: %s", str(e))
         return json_response(False, "Some error occurred", status_code=500)
+
+
+from django.views.decorators.csrf import csrf_exempt
+from .models import SGI
+import logging
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+def create_sgi(request):
+
+    if request.method != "POST":
+        return json_response(False, "POST required", status_code=405)
+
+    data, error = get_json(request)
+    if error:
+        return json_response(False, error, status_code=400)
+
+    # ✅ Default to empty string if missing/null
+    full_name = data.get("full_name") or ""
+    company_name = data.get("company_name") or ""
+    email = data.get("email") or ""
+    contact_number = data.get("contact_number") or ""
+    requirement = data.get("requirement") or ""
+
+    try:
+        sgi = SGI.objects.create(
+            full_name=full_name,
+            company_name=company_name,
+            email=email,
+            contact_number=contact_number,
+            requirement=requirement
+        )
+        
+        message = f"""
+📩 New Inquiry Received - SGI
+
+👤 Full Name: {full_name or "N/A"}
+🏢 Company Name: {company_name or "N/A"}
+📧 Email: {email or "N/A"}
+📞 Contact Number: {contact_number or "N/A"}
+
+📝 Requirement:
+{requirement or "N/A"}
+
+🕒 Submitted At: {sgi.created_at.strftime('%d-%m-%Y %H:%M:%S')}
+
+---
+Shree Gayatri Industries
+"""
+
+        payload = {
+            "number": f"919104513411",
+            "message": message
+        }
+
+        response = requests.post(
+            WHATSAPP_BOT_URL,
+            json=payload,
+            timeout=10
+        )
+
+        response.raise_for_status()
+        data = response.json()
+
+        logger.info(f"WhatsApp VPS Response: {data}")
+
+        return json_response(True, "Data saved successfully", data={
+            "id": sgi.id,
+            "full_name": sgi.full_name,
+            "company_name": sgi.company_name,
+            "email": sgi.email,
+            "contact_number": sgi.contact_number,
+            "requirement": sgi.requirement,
+            "created_at": sgi.created_at
+        })
+
+    except Exception as e:
+        logger.exception("SGI create failed: %s", str(e))
+        return json_response(False, "Internal server error", 500)
