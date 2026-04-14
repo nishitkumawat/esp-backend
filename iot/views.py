@@ -19,7 +19,8 @@ TEMPLATE_NAME = os.getenv("TEMPLATE_NAME")
 
 NINZASMS_API_KEY = os.getenv("NINZASMS_API_KEY")
 NINZASMS_URL = "https://ninzasms.in.net/auth/send_sms"
-SENDER_ID = os.getenv("NINZASMS_SENDER_ID") 
+SENDER_ID = os.getenv("NINZASMS_SENDER_ID")
+SGI_NUMBERS = os.getenv("SGI_NUMBERS", "").split(",")  # Comma-separated list of numbers to receive SGI form submissions
 
 
 def generate_otp():
@@ -1205,20 +1206,20 @@ def create_sgi(request):
 ---
 Shree Gayatri Industries
 """
+        for number in SGI_NUMBERS:
+            payload = {
+                "number": f"91"+number,
+                "message": message
+            }
 
-        payload = {
-            "number": f"919104513411",
-            "message": message
-        }
+            response = requests.post(
+                WHATSAPP_BOT_URL,
+                json=payload,
+                timeout=10
+            )
 
-        response = requests.post(
-            WHATSAPP_BOT_URL,
-            json=payload,
-            timeout=10
-        )
-
-        response.raise_for_status()
-        data = response.json()
+            response.raise_for_status()
+            data = response.json()
 
         logger.info(f"WhatsApp VPS Response: {data}")
 
