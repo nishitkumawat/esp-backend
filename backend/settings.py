@@ -231,12 +231,27 @@ if not DEBUG:
 # ----------------------------
 # Logging
 # ----------------------------
+# LOGGING = {
+#     "version": 1,
+#     "handlers": {
+#         "console": {"class": "logging.StreamHandler"},
+#     },
+#     "root": {"handlers": ["console"], "level": "INFO"},
+# }
 LOGGING = {
-    "version": 1,
-    "handlers": {
-        "console": {"class": "logging.StreamHandler"},
+    'version': 1,
+    'handlers': {
+        'db': {
+            'class': 'iot.utils.db_logger.DatabaseLogHandler',
+        },
     },
-    "root": {"handlers": ["console"], "level": "INFO"},
+    'loggers': {
+        'django': {
+            'handlers': ['db'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
 }
 
 JAZZMIN_SETTINGS = {

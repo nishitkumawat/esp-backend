@@ -62,3 +62,13 @@ class SGI(models.Model):
     requirement = models.TextField(blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    
+# models.py
+class ErrorLog(models.Model):
+    message = models.TextField()
+    traceback = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.message[:50]
