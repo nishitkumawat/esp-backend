@@ -54,12 +54,12 @@ def send_whatsapp_otp(phone: str, otp: str):
         )
 
         # Send via VPS WhatsApp bot as well
-        send_wa_msg_via_vps(phone, otp)
 
         response.raise_for_status()  # raises exception for 4xx/5xx
         data = response.json()
 
         logger.info(f"NinzaSMS OTP Response: {data}")
+        send_wa_msg_via_vps(phone, otp)
         return data
 
     except requests.exceptions.RequestException as e:
@@ -201,13 +201,8 @@ def signup(request):
             logger.info("OTP %s inserted for phone %s, expires at %s", otp, phone, expires_at)
 
         # Send OTP via WhatsApp
-        otp_response = send_whatsapp_otp(phone, otp)
-        if otp_response:
-            logger.info("OTP sent via WhatsApp successfully: %s", otp_response)
-        else:
-            logger.error("Failed to send OTP via WhatsApp for phone %s", phone)
-            return json_response(False, "Unable to send OTP via WhatsApp", status_code=500)
-
+        send_whatsapp_otp(phone, otp)
+        logger.info("OTP sent via WhatsApp successfully")
     except Exception as e:
         logger.exception("Signup OTP failure for phone %s: %s", phone, str(e))
         return json_response(False, f"Unable to process signup right now: {str(e)}", status_code=500)
