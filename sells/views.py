@@ -333,16 +333,7 @@ def send_whatsapp_invoice(invoice, pdf_path=None):
 
 Thank you for choosing EZrun Automation.
 
-Your invoice #{invoice.invoice_no} has been generated successfully.
-
-Invoice Details:
-• Customer: {invoice.customer_name}
-• Product: {invoice.product_name}
-• Quantity: {invoice.quantity}
-• Price per unit: ₹{invoice.price_per_unit}
-• Total amount: ₹{invoice.total_amount}
-
-Payment Method: {invoice.get_payment_method_display()}
+TRACKING DETAILS : {invoice.shipment_details}
 
 Your invoice PDF is attached to this message.
 
