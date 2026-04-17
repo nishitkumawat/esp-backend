@@ -10,9 +10,11 @@ import traceback
 from weasyprint import HTML, CSS
 import requests
 from .models import Invoice
+from .utils.db_logger import DatabaseLogHandler
 
-# Configure logger
+# Configure logger with database handler
 logger = logging.getLogger(__name__)
+logger.addHandler(DatabaseLogHandler())
 
 # Create your views here.
 
@@ -274,6 +276,110 @@ def invoice_delete(request, invoice_id):
         })
 
 
+
+
 def generate_invoice_pdf(invoice):
     """Generate PDF invoice using WeasyPrint"""
     from django.conf import settings
+    from pathlib import Path
+    import urllib.parse
+    import tempfile
+    import shutil
+    
+    # Create temporary directory for PDF
+    temp_dir = tempfile.mkdtemp(prefix=f'invoice_{invoice.invoice_no}_')
+    
+    # Pass absolute logo path
+    logo_path = os.path.join(settings.BASE_DIR, 'logo_without_bg.PNG')
+    logo_uri = Path(logo_path).as_uri() if os.path.exists(logo_path) else ''
+    
+    # Generate HTML content
+    html_content = render_to_string('sells/invoice_pdf.html', {
+        'invoice': invoice,
+        'logo_uri': logo_uri
+    })
+    
+    # Generate PDF
+    # Base URL allows resolving any local paths if needed
+    html = HTML(string=html_content, base_url=Path(settings.BASE_DIR).as_uri())
+    
+    pdf_path = os.path.join(temp_dir, f'Invoice_{invoice.invoice_no}.pdf')
+    html.write_pdf(pdf_path)
+    
+    # Schedule deletion after 1 hour (3600 seconds)
+    import threading
+    import time
+    
+    def delete_temp_files():
+        time.sleep(3600)  # Wait 1 hour
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print(f"DEBUG: Temporary PDF files deleted for invoice {invoice.invoice_no}")
+        except Exception as e:
+            print(f"DEBUG: Error deleting temp files: {e}")
+    
+    # Start deletion in background thread
+    deletion_thread = threading.Thread(target=delete_temp_files, daemon=True)
+    deletion_thread.start()
+    
+    return pdf_path
+
+def send_whatsapp_invoice(invoice, pdf_path=None):
+    """Send invoice PDF via WhatsApp bot running on VPS"""
+    WHATSAPP_BOT_URL = "http://203.174.22.81:3001/send-document"
+    
+    # Prepare message
+    message = f"""Hello {invoice.customer_name},
+
+Thank you for choosing EZrun Automation.
+
+Your invoice #{invoice.invoice_no} has been generated successfully.
+
+Invoice Details:
+• Customer: {invoice.customer_name}
+• Product: {invoice.product_name}
+• Quantity: {invoice.quantity}
+• Price per unit: ₹{invoice.price_per_unit}
+• Total amount: ₹{invoice.total_amount}
+
+Payment Method: {invoice.get_payment_method_display()}
+
+Your invoice PDF is attached to this message.
+
+Best regards,
+EZrun Automation Team
+www.ezrun.in | +91 99744 86076"""
+    
+    try:
+        # Check if PDF exists
+        if pdf_path and os.path.exists(pdf_path):
+            with open(pdf_path, 'rb') as pdf_file:
+                files = {
+                    'document': (f'Invoice_{invoice.invoice_no}.pdf', pdf_file, 'application/pdf')
+                }
+                
+                payload = {
+                    'phone': "91"+invoice.phone,
+                    'message': message,
+                    'filename': f'Invoice_{invoice.invoice_no}.pdf'
+                }
+                
+                response = requests.post(
+                    WHATSAPP_BOT_URL,
+                    files=files,
+                    data=payload,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    print(f"WhatsApp sent successfully to {invoice.phone}")
+                else:
+                    print(f"WhatsApp failed with status code: {response.status_code}")
+                    print(f"Response: {response.text}")
+        else:
+            print(f"PDF file not found at: {pdf_path}")
+            
+    except Exception as e:
+        print(f"Error sending WhatsApp: {str(e)}")
+        raise
+

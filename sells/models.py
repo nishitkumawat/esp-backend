@@ -7,6 +7,20 @@ def invoice_pdf_path(instance, filename):
     """Generate path for storing invoice PDF files"""
     return f'invoices/{instance.invoice_no}/{filename}'
 
+class ErrorLog(models.Model):
+    """Error log model for storing application errors"""
+    timestamp = models.DateTimeField(auto_now_add=True)
+    message = models.TextField()
+    traceback = models.TextField()
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = "Error Log"
+        verbose_name_plural = "Error Logs"
+    
+    def __str__(self):
+        return f"Error at {self.timestamp}: {self.message[:50]}"
+
 class Invoice(models.Model):
     """Invoice model for storing customer invoice information"""
     
