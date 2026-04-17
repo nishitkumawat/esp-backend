@@ -242,7 +242,7 @@ def generate_invoice_pdf(invoice):
 
 def send_whatsapp_invoice(invoice, pdf_path=None):
     """Send invoice PDF via WhatsApp bot running on VPS"""
-    WHATSAPP_BOT_URL = "http://localhost:3001/send"
+    WHATSAPP_BOT_URL = "http://localhost:3001/send-document"
     
     # Prepare message
     message = f"""Hello {invoice.customer_name},
@@ -275,7 +275,7 @@ www.ezrun.in | +91 99744 86076"""
                 }
                 
                 payload = {
-                    'phone': invoice.phone,
+                    'phone': "91"+invoice.phone,
                     'message': message,
                     'filename': f'Invoice_{invoice.invoice_no}.pdf'
                 }
