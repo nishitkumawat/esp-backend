@@ -22,4 +22,5 @@ urlpatterns = [
     path('iot/', include('iot.urls')),
     path('ota/', include('ota.urls')),
     path('api/solar/', include('solar.urls')),
+    path('sells_frerggewebj3/', include('sells.urls')),
 ]

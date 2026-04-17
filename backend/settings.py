@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "iot",
     "ota",
     "solar",
+    "sells",
 ]
 
 # ----------------------------
