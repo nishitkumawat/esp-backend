@@ -90,8 +90,8 @@ def invoice_create(request):
                 pdf_path = generate_invoice_pdf(invoice)
                 logger.info(f"PDF generated temporarily at {pdf_path}")
             except Exception as e:
-                logger.exception(f"PDF generation failed: {e}")
-                logger.exception(f"Traceback: {traceback.format_exc()}")
+                logger.error(f"PDF generation failed: {e}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 # Continue without PDF for now
                 pdf_path = None
             
@@ -104,8 +104,8 @@ def invoice_create(request):
             except Exception as e:
                 invoice.whatsapp_status = 'FAILED'
                 invoice.whatsapp_error = str(e)
-                logger.exception(f"WhatsApp sending failed: {e}")
-                logger.exception(f"Traceback: {traceback.format_exc()}")
+                logger.error(f"WhatsApp sending failed: {e}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
             
             invoice.save()
             
@@ -118,8 +118,8 @@ def invoice_create(request):
             })
             
         except Exception as e:
-            logger.exception(f"Unexpected error in invoice creation: {e}")
-            logger.exception(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Unexpected error in invoice creation: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return JsonResponse({
                 'success': False,
                 'message': 'An unexpected error occurred. Please try again.'
@@ -151,8 +151,8 @@ def invoice_create(request):
             return render(request, 'sells/invoice_create.html', context)
             
         except Exception as e:
-            logger.exception(f"Error rendering invoice creation form: {e}")
-            logger.exception(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Error rendering invoice creation form: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return render(request, 'sells/invoice_create.html', {
                 'error': 'An error occurred while loading the form.'
             })
@@ -201,8 +201,8 @@ def invoice_list(request):
         })
         
     except Exception as e:
-        logger.exception(f"Error loading invoice list: {e}")
-        logger.exception(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Error loading invoice list: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return render(request, 'sells/invoice_list.html', {
             'error': 'An error occurred while loading invoices.'
         })
@@ -214,8 +214,8 @@ def invoice_view(request, invoice_no):
         logger.info(f"Viewing invoice: {invoice_no}")
         return render(request, 'sells/invoice_view.html', {'invoice': invoice})
     except Exception as e:
-        logger.exception(f"Error viewing invoice {invoice_no}: {e}")
-        logger.exception(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Error viewing invoice {invoice_no}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return render(request, 'sells/invoice_view.html', {
             'error': 'An error occurred while loading the invoice.'
         })
@@ -236,8 +236,8 @@ def invoice_pdf(request, invoice_no):
             response['Content-Disposition'] = f'inline; filename="Invoice_{invoice.invoice_no}.pdf"'
             return response
     except Exception as e:
-        logger.exception(f"Error generating PDF for invoice {invoice_no}: {e}")
-        logger.exception(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Error generating PDF for invoice {invoice_no}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return HttpResponse("PDF generation failed", status=500)
 
 def invoice_delete(request, invoice_id):
@@ -266,8 +266,8 @@ def invoice_delete(request, invoice_id):
                 'message': 'Invalid request method'
             })
     except Exception as e:
-        logger.exception(f"Error deleting invoice {invoice_id}: {e}")
-        logger.exception(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Error deleting invoice {invoice_id}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return JsonResponse({
             'success': False,
             'message': 'An error occurred while deleting the invoice.'
