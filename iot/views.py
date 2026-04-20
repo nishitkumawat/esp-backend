@@ -1168,7 +1168,12 @@ def create_sgi(request):
     data, error = get_json(request)
     if error:
         return json_response(False, error, status_code=400)
-
+    API_KEY = str(os.getenv("API_KEY"))
+    ezrun_api_key = data.get("ezrun_api_key") or ""
+    if ezrun_api_key != API_KEY:
+        return json_response(False, "Unauthorized", status_code=401)
+    
+    
     # ✅ Default to empty string if missing/null
     full_name = data.get("full_name") or ""
     company_name = data.get("company_name") or ""
