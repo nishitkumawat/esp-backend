@@ -7,6 +7,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from dotenv import load_dotenv
 import os
+from django.utils import timezone
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -1190,6 +1192,7 @@ def create_sgi(request):
             requirement=requirement
         )
         
+        print_time = timezone.localtime(sgi.created_at, ZoneInfo("Asia/Kolkata")).strftime('%d-%m-%Y %H:%M:%S')
         message = f"""
 📩 New Inquiry Received - SGI
 
@@ -1201,7 +1204,7 @@ def create_sgi(request):
 📝 Requirement:
 {requirement or "N/A"}
 
-🕒 Submitted At: {sgi.created_at.strftime('%d-%m-%Y %H:%M:%S')}
+🕒 Submitted At: {print_time}
 
 ---
 Shree Gayatri Industries
