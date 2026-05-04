@@ -116,7 +116,7 @@ def invoice_create(request):
             return JsonResponse({
                 'success': True,
                 'invoice_no': invoice.invoice_no,
-                'message': 'Invoice created successfully!'
+                'message': 'Receipt created successfully!'
             })
             
         except Exception as e:
@@ -235,7 +235,7 @@ def invoice_pdf(request, invoice_no):
         # Serve PDF
         with open(pdf_path, 'rb') as f:
             response = HttpResponse(f.read(), content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="Invoice_{invoice.invoice_no}.pdf"'
+            response['Content-Disposition'] = f'inline; filename="Receipt_{invoice.invoice_no}.pdf"'
             return response
     except Exception as e:
         logger.error(f"Error generating PDF for invoice {invoice_no}: {e}")
@@ -303,7 +303,7 @@ def generate_invoice_pdf(invoice):
     # Base URL allows resolving any local paths if needed
     html = HTML(string=html_content, base_url=Path(settings.BASE_DIR).as_uri())
     
-    pdf_path = os.path.join(temp_dir, f'Invoice_{invoice.invoice_no}.pdf')
+    pdf_path = os.path.join(temp_dir, f'Receipt_{invoice.invoice_no}.pdf')
     html.write_pdf(pdf_path)
     
     # Schedule deletion after 1 hour (3600 seconds)
@@ -335,7 +335,7 @@ Thank you for choosing EZrun Automation.
 
 TRACKING DETAILS : {invoice.shipment_details}
 
-Your invoice PDF is attached to this message.
+Your receipt PDF is attached to this message.
 
 Best regards,
 EZrun Automation Team
@@ -346,13 +346,13 @@ www.ezrun.in | +91 99744 86076"""
         if pdf_path and os.path.exists(pdf_path):
             with open(pdf_path, 'rb') as pdf_file:
                 files = {
-                    'document': (f'Invoice_{invoice.invoice_no}.pdf', pdf_file, 'application/pdf')
+                    'document': (f'Receipt_{invoice.invoice_no}.pdf', pdf_file, 'application/pdf')
                 }
                 
                 payload = {
                     'phone': "91"+invoice.phone,
                     'message': message,
-                    'filename': f'Invoice_{invoice.invoice_no}.pdf'
+                    'filename': f'Receipt_{invoice.invoice_no}.pdf'
                 }
                 
                 response = requests.post(

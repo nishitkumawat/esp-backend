@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice {{ invoice.invoice_no }}</title>
+    <title>Receipt {{ invoice.invoice_no }}</title>
     <style>
         @page {
             size: A4;
@@ -141,14 +141,14 @@
         <tr>
             <td style="width: 60%; vertical-align: top;">
                 <div class="customer-box">
-                    <div style="font-size:10px; color:#7f8c8d; text-transform:uppercase; margin-bottom:5px;">Bill To</div>
+                    <div style="font-size:10px; color:#7f8c8d; text-transform:uppercase; margin-bottom:5px;">Customer Details</div>
                     <strong style="font-size:14px; color:#1a1a2e;">{{ invoice.customer_name }}</strong>
                     <div style="margin-top:5px; padding-right:40px;">
                         {{ invoice.customer_address|linebreaksbr }}<br><br>
                         <strong>Phone:</strong> {{ invoice.phone }}<br><br>
-                        {% if invoice.shipment_details %}
-                        <strong>Shipping Address:</strong> {{ invoice.shipment_details|linebreaksbr }}
-                        {% endif %}
+                        <!-- {% if invoice.shipment_details %}
+                        <strong>Shipment/Tracking Details:</strong> {{ invoice.shipment_details|linebreaksbr }}
+                        {% endif %} -->
                     </div>
                 </div>
             </td>
@@ -156,7 +156,7 @@
                 <h3 style="margin:0 0 10px 0; color:#e67e22; font-size: 18px;">RECEIPT</h3>
                 <table style="width:100%; border-collapse:collapse; font-size:11px;">
                     <tr>
-                        <td style="color:#7f8c8d; padding:3px 0;">Invoice #:</td>
+                        <td style="color:#7f8c8d; padding:3px 0;">Receipt #:</td>
                         <td style="font-weight:bold; padding:3px 0; text-align:right;">{{ invoice.invoice_no }}</td>
                     </tr>
                     <tr>
@@ -232,6 +232,11 @@
         </p>
         
         
+    </div>
+
+    <!-- Receipt Note -->
+    <div style="font-size:10px; padding:10px; margin-top:15px; font-style:italic; text-align:center; color:#7f8c8d; background:#f8f9fa; border:1px solid #e0e0e0;">
+        <strong>Note:</strong> This is just a receipt of purchase which can be used for further warranty and claims only.
     </div>
 
     <!-- Footer Match Image 2 -->
