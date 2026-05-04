@@ -2,7 +2,7 @@ import logging
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 import json
 import os
@@ -195,11 +195,15 @@ def invoice_list(request):
                 Q(invoice_no__icontains=search_query)
             )
         
+        # Calculate total sum
+        total_sum = invoices.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        
         logger.info(f"Found {invoices.count()} invoices matching search: '{search_query}'")
         
         return render(request, 'sells/invoice_list.html', {
             'invoices': invoices,
-            'search_query': search_query
+            'search_query': search_query,
+            'total_sum': total_sum
         })
         
     except Exception as e:
