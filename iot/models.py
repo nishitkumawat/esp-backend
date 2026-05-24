@@ -66,6 +66,7 @@ class SGI(models.Model):
     
 # models.py
 class ErrorLog(models.Model):
+    module = models.CharField(max_length=100, blank=True, null=True, db_index=True)
     message = models.TextField()
     traceback = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)

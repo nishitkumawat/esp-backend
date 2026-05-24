@@ -20,6 +20,7 @@ class DatabaseLogHandler(logging.Handler):
                 full_traceback = self.format(record)
 
             ErrorLog.objects.create(
+                module=record.name[:100],
                 message=message[:1000],
                 traceback=full_traceback[:20000]
             )

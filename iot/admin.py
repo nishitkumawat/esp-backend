@@ -22,9 +22,9 @@ class IotUserDeviceAdmin(admin.ModelAdmin):
 
 @admin.register(ErrorLog)
 class ErrorLogAdmin(admin.ModelAdmin):
-    list_display = ('id', 'short_message', 'created_at')
-    list_filter = ('created_at',)
-    search_fields = ('message', 'traceback')
+    list_display = ('id', 'module', 'short_message', 'created_at')
+    list_filter = ('module', 'created_at')
+    search_fields = ('module', 'message', 'traceback')
     readonly_fields = ('message', 'traceback', 'created_at')
 
     ordering = ('-created_at',)
