@@ -12,13 +12,21 @@ def check_rain(lat, lon, threshold, device_id=None):
         url = (
             f"https://api.open-meteo.com/v1/forecast"
             f"?latitude={lat}&longitude={lon}"
-            f"&hourly=precipitation&past_days=1&forecast_days=0&timezone=auto"
+            f"&hourly=precipitation&past_days=1&forecast_days=1"
         )
         r = requests.get(url, timeout=10)
-        r.raise_for_status()
+        if r.status_code != 200:
+            logger.warning(f"[Rain] API request failed with status {r.status_code}")
+            return False
+            
         data = r.json()
-        vals = data.get("hourly", {}).get("precipitation", [])
-        max_rain = max((float(v) for v in vals if v is not None), default=0)
+        precipitation = data.get("hourly", {}).get("precipitation", [])
+        
+        # Last 24 hrs only
+        last_24h = precipitation[:24]
+        
+        # Find max rain event
+        max_rain = max((float(v) for v in last_24h if v is not None), default=0)
         logger.info(f"[Rain] max={max_rain}mm threshold={threshold}mm")
         skip = max_rain >= threshold
 
