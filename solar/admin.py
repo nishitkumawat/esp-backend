@@ -22,7 +22,7 @@ class DeviceLocationAdmin(admin.ModelAdmin):
 
 @admin.register(WeatherLog)
 class WeatherLogAdmin(admin.ModelAdmin):
-    list_display = ('device_id', 'timestamp', 'lat', 'lon', 'temperature', 'weather_code')
-    list_filter = ('device_id',)
+    list_display = ('device_id', 'timestamp', 'lat', 'lon', 'temperature', 'weather_code', 'max_rain', 'skip_wash')
+    list_filter = ('device_id', 'skip_wash')
     search_fields = ('device_id',)
     readonly_fields = ('raw_response',)

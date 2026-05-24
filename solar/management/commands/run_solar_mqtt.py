@@ -30,6 +30,8 @@ def check_rain(lat, lon, threshold, device_id=None):
                 lon=lon,
                 temperature=None,          # precipitation check — no temp
                 weather_code=None,         # not returned in this endpoint
+                max_rain=max_rain,
+                skip_wash=skip,
                 raw_response=data,
             )
         except Exception as log_err:

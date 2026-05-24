@@ -94,6 +94,8 @@ class WeatherLog(models.Model):
     lon = models.FloatField(null=True, blank=True)
     temperature = models.FloatField(null=True, blank=True)
     weather_code = models.IntegerField(null=True, blank=True)
+    max_rain = models.FloatField(null=True, blank=True)
+    skip_wash = models.BooleanField(null=True, blank=True)
     raw_response = models.JSONField(null=True, blank=True)
 
     class Meta:
