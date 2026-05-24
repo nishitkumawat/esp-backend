@@ -1,95 +1,113 @@
-import os
-import json
-import logging
+import os, json, logging, threading, requests
 import paho.mqtt.client as mqtt
 from django.core.management.base import BaseCommand
 from solar.models import SolarHourlyData, WashRecord, DeviceLocation
 
 logger = logging.getLogger(__name__)
 
+
+def check_rain(lat, lon, threshold):
+    """Query Open-Meteo. Returns True=skip wash. Fail-safe: False on error."""
+    try:
+        url = (
+            f"https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat}&longitude={lon}"
+            f"&hourly=precipitation&past_days=1&forecast_days=0&timezone=auto"
+        )
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        vals = data.get("hourly", {}).get("precipitation", [])
+        if not vals:
+            return False
+        max_rain = max(float(v) for v in vals if v is not None)
+        logger.info(f"[Rain] max={max_rain}mm threshold={threshold}mm")
+        return max_rain >= threshold
+    except Exception as e:
+        logger.warning(f"[Rain] API error (fail-safe wash allowed): {e}")
+        return False
+
+
 class Command(BaseCommand):
-    help = "Runs MQTT listener for Solar devices"
+    help = "MQTT listener: Solar data + Rain weather check"
 
     def handle(self, *args, **options):
-        # ================= MQTT CONFIG =================
-        MQTT_BROKER = os.getenv("MQTT_BROKER", "mqtt.ezrun.in")
-        MQTT_PORT   = int(os.getenv("MQTT_PORT", 1883))
-        MQTT_USER   = os.getenv("MQTT_USER", "nk")
-        MQTT_PASS   = os.getenv("MQTT_PASS", "9898434411")
+        BROKER = os.getenv("MQTT_BROKER", "mqtt.ezrun.in")
+        PORT   = int(os.getenv("MQTT_PORT", 1883))
+        USER   = os.getenv("MQTT_USER", "nk")
+        PASS   = os.getenv("MQTT_PASS", "9898434411")
 
-        TOPIC_SUBSCRIPTION = "solar/+/data/#"
-
-        # ================= MQTT CALLBACKS =================
         def on_connect(client, userdata, flags, rc):
             if rc == 0:
-                self.stdout.write(self.style.SUCCESS("✓ Connected to MQTT Broker"))
-                client.subscribe(TOPIC_SUBSCRIPTION)
+                self.stdout.write(self.style.SUCCESS("✓ MQTT Connected"))
+                client.subscribe("solar/+/data/#")
+                client.subscribe("solar/+/weather/check")
             else:
-                self.stdout.write(self.style.ERROR(f"✗ MQTT connect failed, rc={rc}"))
+                self.stdout.write(self.style.ERROR(f"✗ MQTT rc={rc}"))
+
+        def weather_thread(client, device_id, payload_str):
+            def _run():
+                try:
+                    d = json.loads(payload_str)
+                    lat = float(d.get("lat", 0))
+                    lon = float(d.get("lon", 0))
+                    thr = float(d.get("threshold", 3))
+                    skip = check_rain(lat, lon, thr) if (lat or lon) else False
+                    resp = json.dumps({"skip_wash": skip})
+                    client.publish(f"solar/{device_id}/weather/response", resp, qos=1)
+                    self.stdout.write(f"{'SKIP' if skip else 'WASH'} {device_id} lat={lat} lon={lon}")
+                except Exception as e:
+                    logger.error(f"[Weather] {device_id}: {e}")
+                    try:
+                        client.publish(f"solar/{device_id}/weather/response",
+                                       json.dumps({"skip_wash": False}), qos=1)
+                    except Exception:
+                        pass
+            threading.Thread(target=_run, daemon=True).start()
 
         def on_message(client, userdata, msg):
             try:
                 topic = msg.topic
                 payload = msg.payload.decode("utf-8")
-                data = json.loads(payload)
 
-                device_id = data.get("device_id")
-                voltage   = float(data.get("voltage", 0))
-                current   = float(data.get("current", 0))
-                power     = float(data.get("power", 0))
-
-                if not device_id:
-                    logger.warning("Missing device_id in payload")
+                if "/weather/check" in topic:
+                    parts = topic.split("/")
+                    if len(parts) >= 3:
+                        weather_thread(client, parts[1], payload)
                     return
 
-                # ================= SAVE DATA =================
+                data = json.loads(payload)
+                device_id = data.get("device_id")
+                if not device_id:
+                    return
+                voltage = float(data.get("voltage", 0))
+                current = float(data.get("current", 0))
+                power   = float(data.get("power", 0))
+
                 if topic.endswith("/hourly"):
                     SolarHourlyData.objects.create(
-                        device_id=device_id,
-                        voltage=voltage,
-                        current=current,
-                        power=power,
-                        energy=power,  # avg W over hour (you can refine later)
-                    )
-                    print(f"✓ Hourly data saved for {device_id} ({power} W)")
-
+                        device_id=device_id, voltage=voltage,
+                        current=current, power=power, energy=power)
+                    print(f"✓ Hourly {device_id} ({power}W)")
                 elif topic.endswith("/before_wash"):
-                    WashRecord.objects.create(
-                        device_id=device_id,
-                        wash_type="BEFORE",
-                        voltage=voltage,
-                        current=current,
-                        power=power,
-                    )
-                    print(f"✓ BEFORE wash saved for {device_id}")
-
+                    WashRecord.objects.create(device_id=device_id, wash_type="BEFORE",
+                        voltage=voltage, current=current, power=power)
                 elif topic.endswith("/after_wash"):
-                    WashRecord.objects.create(
-                        device_id=device_id,
-                        wash_type="AFTER",
-                        voltage=voltage,
-                        current=current,
-                        power=power,
-                    )
-                    print(f"✓ AFTER wash saved for {device_id}")
-
+                    WashRecord.objects.create(device_id=device_id, wash_type="AFTER",
+                        voltage=voltage, current=current, power=power)
             except json.JSONDecodeError:
-                logger.error(f"Invalid JSON received: {msg.payload}")
+                logger.error(f"Invalid JSON: {msg.payload}")
             except Exception as e:
-                logger.exception(f"Error processing MQTT message: {e}")
+                logger.exception(f"MQTT error: {e}")
 
-        # ================= MQTT CLIENT =================
         client = mqtt.Client()
-        client.username_pw_set(MQTT_USER, MQTT_PASS)
+        client.username_pw_set(USER, PASS)
         client.on_connect = on_connect
         client.on_message = on_message
-
-        self.stdout.write("Connecting to MQTT broker...")
-
         try:
-            client.connect(MQTT_BROKER, MQTT_PORT, 60)
+            client.connect(BROKER, PORT, 60)
             client.loop_forever()
         except KeyboardInterrupt:
             self.stdout.write("MQTT listener stopped.")
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"MQTT connection error: {e}"))
+            self.stdout.write(self.style.ERROR(f"Error: {e}"))

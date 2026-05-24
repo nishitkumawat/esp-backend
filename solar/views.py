@@ -10,6 +10,7 @@ import calendar
 import json
 import requests
 
+# pyrefly: ignore [missing-import]
 from .models import SolarHourlyData, WashRecord, DeviceLocation
 
 
@@ -259,6 +260,7 @@ def get_solar_stats(request):
         money_saved=round(money_saved, 2)
     )
 
+# pyrefly: ignore [missing-import]
 from .models import SolarAlert
 
 @csrf_exempt
