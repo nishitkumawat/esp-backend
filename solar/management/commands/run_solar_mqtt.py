@@ -1,13 +1,13 @@
 import os, json, logging, threading, requests
 import paho.mqtt.client as mqtt
 from django.core.management.base import BaseCommand
-from solar.models import SolarHourlyData, WashRecord, DeviceLocation
+from solar.models import SolarHourlyData, WashRecord, DeviceLocation, WeatherLog
 
 logger = logging.getLogger(__name__)
 
 
-def check_rain(lat, lon, threshold):
-    """Query Open-Meteo. Returns True=skip wash. Fail-safe: False on error."""
+def check_rain(lat, lon, threshold, device_id=None):
+    """Query Open-Meteo for precipitation. Returns True=skip wash. Fail-safe: False on error."""
     try:
         url = (
             f"https://api.open-meteo.com/v1/forecast"
@@ -18,11 +18,24 @@ def check_rain(lat, lon, threshold):
         r.raise_for_status()
         data = r.json()
         vals = data.get("hourly", {}).get("precipitation", [])
-        if not vals:
-            return False
-        max_rain = max(float(v) for v in vals if v is not None)
+        max_rain = max((float(v) for v in vals if v is not None), default=0)
         logger.info(f"[Rain] max={max_rain}mm threshold={threshold}mm")
-        return max_rain >= threshold
+        skip = max_rain >= threshold
+
+        # Save every weather/rain API response to WeatherLog
+        try:
+            WeatherLog.objects.create(
+                device_id=device_id or "unknown",
+                lat=lat,
+                lon=lon,
+                temperature=None,          # precipitation check — no temp
+                weather_code=None,         # not returned in this endpoint
+                raw_response=data,
+            )
+        except Exception as log_err:
+            logger.warning(f"[Rain] WeatherLog save failed: {log_err}")
+
+        return skip
     except Exception as e:
         logger.warning(f"[Rain] API error (fail-safe wash allowed): {e}")
         return False
@@ -52,7 +65,7 @@ class Command(BaseCommand):
                     lat = float(d.get("lat", 0))
                     lon = float(d.get("lon", 0))
                     thr = float(d.get("threshold", 3))
-                    skip = check_rain(lat, lon, thr) if (lat or lon) else False
+                    skip = check_rain(lat, lon, thr, device_id=device_id) if (lat or lon) else False
                     resp = json.dumps({"skip_wash": skip})
                     client.publish(f"solar/{device_id}/weather/response", resp, qos=1)
                     self.stdout.write(f"{'SKIP' if skip else 'WASH'} {device_id} lat={lat} lon={lon}")

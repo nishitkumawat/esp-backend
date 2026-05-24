@@ -1,6 +1,6 @@
 from django.contrib import admin
 # pyrefly: ignore [missing-import]
-from .models import SolarHourlyData, WashRecord, DeviceLocation
+from .models import SolarHourlyData, WashRecord, DeviceLocation, WeatherLog
 
 @admin.register(SolarHourlyData)
 class SolarHourlyDataAdmin(admin.ModelAdmin):
@@ -20,3 +20,9 @@ class DeviceLocationAdmin(admin.ModelAdmin):
     list_filter = ('city', 'state')
     search_fields = ('device_id', 'city', 'state')
 
+@admin.register(WeatherLog)
+class WeatherLogAdmin(admin.ModelAdmin):
+    list_display = ('device_id', 'timestamp', 'lat', 'lon', 'temperature', 'weather_code')
+    list_filter = ('device_id',)
+    search_fields = ('device_id',)
+    readonly_fields = ('raw_response',)

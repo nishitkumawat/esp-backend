@@ -11,7 +11,7 @@ import json
 import requests
 
 # pyrefly: ignore [missing-import]
-from .models import SolarHourlyData, WashRecord, DeviceLocation
+from .models import SolarHourlyData, WashRecord, DeviceLocation, WeatherLog
 
 
 def json_response(status: bool, message: str, status_code: int = 200, **extra):
@@ -239,6 +239,16 @@ def get_solar_stats(request):
                         location_data["temperature"] = weather_data['current']['temperature_2m']
                     if 'weather_code' in weather_data['current']:
                         location_data["weather_code"] = weather_data['current']['weather_code']
+
+                # Save every weather API response to WeatherLog
+                WeatherLog.objects.create(
+                    device_id=device_id,
+                    lat=location_obj.lat,
+                    lon=location_obj.lon,
+                    temperature=location_data.get("temperature"),
+                    weather_code=location_data.get("weather_code"),
+                    raw_response=weather_data,
+                )
         except Exception as e:
             print(f"Weather API error: {e}")
     

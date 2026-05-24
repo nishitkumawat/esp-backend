@@ -86,3 +86,21 @@ class ExtraDevice(models.Model):
 
     def __str__(self):
         return f"{self.device_id} -> {self.to_consider}"
+
+class WeatherLog(models.Model):
+    device_id = models.CharField(max_length=100, db_index=True)
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+    temperature = models.FloatField(null=True, blank=True)
+    weather_code = models.IntegerField(null=True, blank=True)
+    raw_response = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp', 'device_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.device_id} - {self.temperature}°C - {self.timestamp}"
