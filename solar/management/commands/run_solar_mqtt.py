@@ -1,7 +1,8 @@
 import os, json, logging, threading, requests
 import paho.mqtt.client as mqtt
 from django.core.management.base import BaseCommand
-from solar.models import SolarHourlyData, WashRecord, DeviceLocation, WeatherLog
+from solar.models import SolarHourlyData, WashRecord, DeviceLocation, WeatherLog, SolarErrorLog
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,15 @@ def check_rain(lat, lon, threshold, device_id=None):
         return skip
     except Exception as e:
         logger.warning(f"[Rain] API error (fail-safe wash allowed): {e}")
+        try:
+            SolarErrorLog.objects.create(
+                device_id=device_id or "unknown",
+                error_type="WEATHER_API",
+                message=str(e),
+                traceback=traceback.format_exc()
+            )
+        except:
+            pass
         return False
 
 
@@ -81,6 +91,15 @@ class Command(BaseCommand):
                     self.stdout.write(f"{'SKIP' if skip else 'WASH'} {device_id} lat={lat} lon={lon}")
                 except Exception as e:
                     logger.error(f"[Weather] {device_id}: {e}")
+                    try:
+                        SolarErrorLog.objects.create(
+                            device_id=device_id,
+                            error_type="WEATHER_PROCESSING",
+                            message=str(e),
+                            traceback=traceback.format_exc()
+                        )
+                    except:
+                        pass
                     try:
                         client.publish(f"solar/{device_id}/weather/response",
                                        json.dumps({"skip_wash": False}), qos=1)
@@ -118,10 +137,34 @@ class Command(BaseCommand):
                 elif topic.endswith("/after_wash"):
                     WashRecord.objects.create(device_id=device_id, wash_type="AFTER",
                         voltage=voltage, current=current, power=power)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON: {msg.payload}")
+                try:
+                    SolarErrorLog.objects.create(
+                        device_id="unknown",
+                        error_type="MQTT_JSON_PARSE",
+                        message=f"Invalid JSON: {msg.payload.decode('utf-8', errors='ignore')}",
+                        traceback=traceback.format_exc()
+                    )
+                except:
+                    pass
             except Exception as e:
                 logger.exception(f"MQTT error: {e}")
+                try:
+                    # Attempt to extract device_id if we managed to parse the topic/json partially
+                    did = None
+                    try:
+                        did = json.loads(msg.payload.decode("utf-8")).get("device_id")
+                    except:
+                        pass
+                    SolarErrorLog.objects.create(
+                        device_id=did or "unknown",
+                        error_type="MQTT_PROCESSING",
+                        message=str(e),
+                        traceback=traceback.format_exc()
+                    )
+                except:
+                    pass
 
         client = mqtt.Client()
         client.username_pw_set(USER, PASS)

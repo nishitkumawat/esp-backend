@@ -106,3 +106,19 @@ class WeatherLog(models.Model):
 
     def __str__(self):
         return f"{self.device_id} - {self.temperature}°C - {self.timestamp}"
+
+class SolarErrorLog(models.Model):
+    device_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    error_type = models.CharField(max_length=100)
+    message = models.TextField()
+    traceback = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp', 'device_id']),
+        ]
+
+    def __str__(self):
+        return f"[{self.error_type}] {self.device_id} - {self.timestamp}"
