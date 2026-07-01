@@ -145,8 +145,8 @@ def invoice_create(request):
             context = {
                 'next_invoice_no': next_invoice_no,
                 'products': [
-                    ('Solar Wash Controller', 'Solar Wash Controller'),
-                    ('Shutter Controller', 'Shutter Controller')
+                    ('Solar Wash Controller', 'Solar Wash Controller','Customized Controller'),
+                    ('Shutter Controller', 'Shutter Controller','Customized Controller')
                 ]
             }
             
@@ -174,8 +174,8 @@ def invoice_create(request):
     context = {
         'next_invoice_no': next_invoice_no,
         'products': [
-            ('Solar Wash Controller', 'Solar Wash Controller'),
-            ('Shutter Controller', 'Shutter Controller')
+            ('Solar Wash Controller', 'Solar Wash Controller','Customized Controller'),
+            ('Shutter Controller', 'Shutter Controller','Customized Controller')
         ]
     }
     
