@@ -1,0 +1,201 @@
+{% extends "crm/base.html" %}
+{% load crm_tags %}
+
+{% block title %}Reports - EZRun CRM{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Reports & Analytics</h1>
+    <p class="page-subtitle">Generate insights and export data</p>
+</div>
+
+<!-- Controls -->
+<div class="crm-card mb-4">
+    <div class="crm-card-body p-3">
+        <form method="get" class="row g-3 align-items-end" id="reportForm">
+            <div class="col-md-3">
+                <label class="form-label fw-bold small">Report Type</label>
+                <select name="report_type" class="form-select" id="reportType" onchange="this.form.submit()">
+                    <option value="lead" {% if report_type == 'lead' %}selected{% endif %}>Lead Report</option>
+                    <option value="status" {% if report_type == 'status' %}selected{% endif %}>Status Report</option>
+                    <option value="category" {% if report_type == 'category' %}selected{% endif %}>Category Report</option>
+                    {% if is_crm_admin %}<option value="user" {% if report_type == 'user' %}selected{% endif %}>User Performance</option>{% endif %}
+                    <option value="followup" {% if report_type == 'followup' %}selected{% endif %}>Follow-Up Report</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold small">Date From</label>
+                <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold small">Date To</label>
+                <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+            </div>
+            <div class="col-md-3 text-end">
+                <button type="submit" class="btn btn-crm-primary w-100"><i class="bi bi-arrow-clockwise"></i> Generate</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Export Actions -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">
+        {% if report_type == 'lead' %}Lead Data{% endif %}
+        {% if report_type == 'status' %}Status Distribution{% endif %}
+        {% if report_type == 'category' %}Category Breakdown{% endif %}
+        {% if report_type == 'user' %}User Performance{% endif %}
+        {% if report_type == 'followup' %}Follow-Up Overview{% endif %}
+    </h4>
+    <div>
+        <a href="{% url 'crm:export_report' %}?type=csv&report_type={{ report_type }}&date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-filetype-csv"></i> Export CSV
+        </a>
+        <a href="{% url 'crm:export_report' %}?type=excel&report_type={{ report_type }}&date_from={{ date_from }}&date_to={{ date_to }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-file-earmark-excel"></i> Export Excel
+        </a>
+    </div>
+</div>
+
+<div class="crm-card">
+    <div class="crm-card-body p-0">
+        <div class="table-responsive">
+            
+            {% if report_type == 'lead' %}
+            <table class="table table-hover table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Source</th>
+                        <th>Assigned</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in lead_report %}
+                    <tr>
+                        <td>{{ lead.created_at|date:"d M Y" }}</td>
+                        <td><strong>{{ lead.name }}</strong></td>
+                        <td>{{ lead.phone }}</td>
+                        <td>{{ lead.category|category_label }}</td>
+                        <td><span class="badge bg-{{ lead.status|status_badge }}">{{ lead.status|status_label }}</span></td>
+                        <td>{{ lead.get_source_display }}</td>
+                        <td>{{ lead.assigned_to.name|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center py-4">No leads found for this period.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% elif report_type == 'status' %}
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Total Leads</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in status_report %}
+                    <tr>
+                        <td><span class="badge bg-{{ stat.status|status_badge }} fs-6">{{ stat.status|status_label }}</span></td>
+                        <td class="fs-5 fw-bold">{{ stat.count }}</td>
+                        <td>
+                            {% if total_leads > 0 %}
+                            <div class="d-flex align-items-center">
+                                <span class="me-2">{{ stat.count|default:0|add:0|stringformat:"f" }}%</span>
+                                <!-- Note: Simple percentage calc for UI, actual math would require custom tag, using a progress bar as visual -->
+                                <div class="progress flex-grow-1" style="height: 8px;">
+                                    <div class="progress-bar bg-{{ stat.status|status_badge }}" role="progressbar" style="width: {{ stat.count|default:0|add:0 }}%"></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center py-4">No data available.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% elif report_type == 'category' %}
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Total Leads</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in category_report %}
+                    <tr>
+                        <td class="fs-6">{{ cat.category|category_label }}</td>
+                        <td class="fs-5 fw-bold">{{ cat.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center py-4">No data available.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% elif report_type == 'user' and is_crm_admin %}
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Sales Executive</th>
+                        <th>Total Assigned</th>
+                        <th>New Leads</th>
+                        <th>Deals Closed</th>
+                        <th>Not Useful</th>
+                        <th>Success Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for up in user_performance %}
+                    <tr>
+                        <td class="fw-bold">{{ up.user.name }}</td>
+                        <td>{{ up.total }}</td>
+                        <td>{{ up.new }}</td>
+                        <td class="text-success fw-bold">{{ up.closed }}</td>
+                        <td class="text-danger">{{ up.not_useful }}</td>
+                        <td>
+                            <!-- Fake calc for display, ideally done in view -->
+                            <span class="badge bg-info">View Details</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center py-4">No data available.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% elif report_type == 'followup' %}
+            <div class="row g-0 text-center">
+                <div class="col-sm-6 col-md-3 p-4 border-end border-bottom">
+                    <div class="fs-1 fw-bold text-dark">{{ followup_report.total }}</div>
+                    <div class="text-muted text-uppercase small">Total Follow-Ups</div>
+                </div>
+                <div class="col-sm-6 col-md-3 p-4 border-end border-bottom">
+                    <div class="fs-1 fw-bold text-warning">{{ followup_report.pending }}</div>
+                    <div class="text-muted text-uppercase small">Pending</div>
+                </div>
+                <div class="col-sm-6 col-md-3 p-4 border-end border-bottom">
+                    <div class="fs-1 fw-bold text-success">{{ followup_report.completed }}</div>
+                    <div class="text-muted text-uppercase small">Completed</div>
+                </div>
+                <div class="col-sm-6 col-md-3 p-4 border-bottom">
+                    <div class="fs-1 fw-bold text-danger">{{ followup_report.overdue }}</div>
+                    <div class="text-muted text-uppercase small">Overdue</div>
+                </div>
+            </div>
+            {% endif %}
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

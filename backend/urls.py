@@ -23,4 +23,5 @@ urlpatterns = [
     path('ota/', include('ota.urls')),
     path('api/solar/', include('solar.urls')),
     path('sells_frerggewebj3/', include('sells.urls')),
+    path('crm/', include('CRM.urls')),
 ]

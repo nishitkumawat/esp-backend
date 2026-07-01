@@ -1,0 +1,144 @@
+{% extends "crm/base.html" %}
+
+{% block title %}{% if is_edit %}Edit{% else %}Create{% endif %} Lead - EZRun CRM{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'crm:lead_list' %}">Leads</a></li>
+                {% if is_edit %}
+                <li class="breadcrumb-item"><a href="{% url 'crm:lead_detail' lead.id %}">{{ lead.name }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Edit</li>
+                {% else %}
+                <li class="breadcrumb-item active" aria-current="page">Create New</li>
+                {% endif %}
+            </ol>
+        </nav>
+        <h1 class="page-title">{% if is_edit %}Edit Lead: {{ lead.name }}{% else %}Create New Lead{% endif %}</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 col-xl-7">
+        <div class="crm-card">
+            <div class="crm-card-body p-4">
+                <form method="post" action="{% if is_edit %}{% url 'crm:lead_edit' lead.id %}{% else %}{% url 'crm:lead_create' %}{% endif %}">
+                    {% csrf_token %}
+                    
+                    <h5 class="border-bottom pb-2 mb-3 mt-0">Basic Information</h5>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label fw-bold">Full Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{% if form_data.name %}{{ form_data.name }}{% elif lead %}{{ lead.name }}{% endif %}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="phone" class="form-label fw-bold">Phone Number *</label>
+                            <input type="text" class="form-control" id="phone" name="phone" 
+                                   value="{% if form_data.phone %}{{ form_data.phone }}{% elif lead %}{{ lead.phone }}{% endif %}" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="category" class="form-label fw-bold">Category *</label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="">Select Category...</option>
+                                {% for val, label in category_choices %}
+                                <option value="{{ val }}" {% if form_data.category == val or lead and lead.category == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="status" class="form-label fw-bold">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                {% for val, label in status_choices %}
+                                <option value="{{ val }}" {% if form_data.status == val or lead and lead.status == val %}selected{% elif not is_edit and val == 'new' %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <h5 class="border-bottom pb-2 mb-3">Assignment & Source</h5>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="source" class="form-label fw-bold">Lead Source</label>
+                            <select class="form-select" id="source" name="source">
+                                {% for val, label in source_choices %}
+                                <option value="{{ val }}" {% if form_data.source == val or lead and lead.source == val %}selected{% elif not is_edit and val == 'whatsapp' %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="assigned_to" class="form-label fw-bold">Assigned To</label>
+                            <select class="form-select" id="assigned_to" name="assigned_to">
+                                <option value="">Unassigned</option>
+                                {% for u in all_users %}
+                                <option value="{{ u.id }}" {% if form_data.assigned_to == u.id|stringformat:"s" or lead and lead.assigned_to_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <h5 class="border-bottom pb-2 mb-3">Additional Details</h5>
+                    
+                    <div class="mb-3">
+                        <label for="remarks" class="form-label fw-bold">Remarks</label>
+                        <textarea class="form-control" id="remarks" name="remarks" rows="3" placeholder="Customer requirements, details, etc.">{% if form_data.remarks %}{{ form_data.remarks }}{% elif lead %}{{ lead.remarks }}{% endif %}</textarea>
+                    </div>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label for="follow_up_date" class="form-label fw-bold">Follow-Up Date</label>
+                            <input type="date" class="form-control" id="follow_up_date" name="follow_up_date" 
+                                   value="{% if lead and lead.follow_up_date %}{{ lead.follow_up_date|date:'Y-m-d' }}{% elif form_data.follow_up_date %}{{ form_data.follow_up_date }}{% endif %}">
+                        </div>
+                    </div>
+                    
+                    <h5 class="border-bottom pb-2 mb-3">Tags</h5>
+                    
+                    <div class="mb-4 d-flex flex-wrap gap-2">
+                        {% for tag in all_tags %}
+                        <div class="form-check custom-tag-check">
+                            <input class="form-check-input" type="checkbox" name="tags" value="{{ tag.id }}" id="tag{{ tag.id }}" 
+                                   {% if lead and tag in lead.tags.all or tag.id|stringformat:"s" in form_data.tags %}checked{% endif %}>
+                            <label class="form-check-label badge" for="tag{{ tag.id }}" style="background-color: {{ tag.color }}; color: white; cursor: pointer; opacity: 0.5;">
+                                {{ tag.name }}
+                            </label>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted small w-100">No tags available in the system.</p>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <a href="{% if is_edit %}{% url 'crm:lead_detail' lead.id %}{% else %}{% url 'crm:lead_list' %}{% endif %}" class="btn btn-light">Cancel</a>
+                        <button type="submit" class="btn btn-crm-primary px-4">{% if is_edit %}Save Changes{% else %}Create Lead{% endif %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Hide standard checkbox, make label look like clickable badge */
+.custom-tag-check .form-check-input {
+    display: none;
+}
+.custom-tag-check .form-check-label {
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+.custom-tag-check .form-check-input:checked + .form-check-label {
+    opacity: 1 !important;
+    border: 2px solid #333;
+    transform: scale(1.05);
+}
+</style>
+{% endblock %}

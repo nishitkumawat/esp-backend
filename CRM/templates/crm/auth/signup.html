@@ -1,0 +1,66 @@
+{% extends "crm/base.html" %}
+{% load static %}
+
+{% block title %}Sign Up - EZRun CRM{% endblock %}
+
+{% block auth_content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-brand">
+            <i class="bi bi-lightning-charge-fill"></i>
+            <h1>EZRun CRM</h1>
+            <p>Create your account</p>
+        </div>
+
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <form method="post" action="{% url 'crm:signup' %}" class="auth-form">
+            {% csrf_token %}
+
+            <div class="form-floating mb-3">
+                <input type="text" class="form-control" id="name" name="name"
+                       placeholder="Full Name" required autofocus
+                       value="{{ form_data.name|default:'' }}" maxlength="100">
+                <label for="name"><i class="bi bi-person"></i> Full Name</label>
+            </div>
+
+            <div class="form-floating mb-3">
+                <input type="tel" class="form-control" id="mobile" name="mobile"
+                       placeholder="Mobile Number" required
+                       value="{{ form_data.mobile|default:'' }}"
+                       pattern="[0-9]{10,15}" maxlength="15">
+                <label for="mobile"><i class="bi bi-phone"></i> Mobile Number</label>
+            </div>
+
+            <div class="form-floating mb-3">
+                <input type="password" class="form-control" id="pin" name="pin"
+                       placeholder="4-Digit PIN" required
+                       pattern="[0-9]{4}" maxlength="4" inputmode="numeric">
+                <label for="pin"><i class="bi bi-lock"></i> Create 4-Digit PIN</label>
+            </div>
+
+            <div class="form-floating mb-3">
+                <input type="password" class="form-control" id="confirm_pin" name="confirm_pin"
+                       placeholder="Confirm PIN" required
+                       pattern="[0-9]{4}" maxlength="4" inputmode="numeric">
+                <label for="confirm_pin"><i class="bi bi-lock-fill"></i> Confirm PIN</label>
+            </div>
+
+            <button type="submit" class="btn btn-crm-primary w-100 btn-lg">
+                <i class="bi bi-person-plus"></i> Create Account
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="{% url 'crm:login' %}">Login</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

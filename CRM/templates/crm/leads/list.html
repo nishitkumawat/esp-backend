@@ -1,0 +1,306 @@
+{% extends "crm/base.html" %}
+{% load crm_tags %}
+
+{% block title %}Leads - EZRun CRM{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Leads</h1>
+        <p class="page-subtitle">Manage all your leads</p>
+    </div>
+    <a href="{% url 'crm:lead_create' %}" class="btn btn-crm-primary">
+        <i class="bi bi-plus-lg"></i> Add New Lead
+    </a>
+</div>
+
+<!-- ===== TABS ===== -->
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if filters.section != 'closed' %}active{% endif %}" href="{% url 'crm:lead_list' %}">Active Leads</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if filters.section == 'closed' %}active{% endif %}" href="{% url 'crm:lead_list' %}?section=closed">Closed Leads</a>
+    </li>
+</ul>
+
+<!-- ===== FILTERS ===== -->
+<div class="crm-card mb-4">
+    <div class="crm-card-body p-3">
+        <form method="get" class="row g-2 align-items-end">
+            {% if filters.section %}
+            <input type="hidden" name="section" value="{{ filters.section }}">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small">Search</label>
+                <input type="text" name="search" class="form-control form-control-sm" value="{{ filters.search }}" placeholder="Name, Phone...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Category</label>
+                <select name="category" class="form-select form-select-sm">
+                    <option value="">All Categories</option>
+                    {% for val, label in category_choices %}
+                    <option value="{{ val }}" {% if filters.category == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All Statuses</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if filters.status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if is_crm_admin %}
+            <div class="col-md-2">
+                <label class="form-label small">Assigned To</label>
+                <select name="assigned_to" class="form-select form-select-sm">
+                    <option value="">All Users</option>
+                    {% for u in all_users %}
+                    <option value="{{ u.id }}" {% if filters.assigned_to == u.id|stringformat:"s" %}selected{% endif %}>{{ u.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small">Tag</label>
+                <select name="tag" class="form-select form-select-sm">
+                    <option value="">All Tags</option>
+                    {% for t in all_tags %}
+                    <option value="{{ t.id }}" {% if filters.tag == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-auto ms-auto">
+                <button type="submit" class="btn btn-sm btn-crm-primary"><i class="bi bi-filter"></i> Filter</button>
+                <a href="{% url 'crm:lead_list' %}{% if filters.section %}?section={{ filters.section }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg"></i> Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== LEADS TABLE & BULK ACTIONS ===== -->
+<div class="crm-card">
+    <div class="crm-card-header d-flex justify-content-between align-items-center">
+        <h5>Leads List ({{ leads.paginator.count }})</h5>
+        
+        <form method="post" action="{% url 'crm:lead_bulk_action' %}" id="bulkActionForm" class="d-flex gap-2">
+            {% csrf_token %}
+            <!-- Hidden inputs will be added here by JS for selected lead IDs -->
+            
+            <select name="bulk_action" class="form-select form-select-sm" id="bulkActionSelect" style="width: auto;" disabled>
+                <option value="">Bulk Action...</option>
+                <option value="change_status">Change Status</option>
+                {% if is_crm_admin %}<option value="assign_user">Assign User</option>{% endif %}
+                <option value="export">Export Selected</option>
+            </select>
+            
+            <select name="bulk_status" class="form-select form-select-sm d-none" id="bulkStatusSelect" style="width: auto;">
+                <option value="">Select Status...</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            
+            {% if is_crm_admin %}
+            <select name="bulk_user" class="form-select form-select-sm d-none" id="bulkUserSelect" style="width: auto;">
+                <option value="">Select User...</option>
+                {% for u in all_users %}
+                <option value="{{ u.id }}">{{ u.name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            
+            <button type="button" class="btn btn-sm btn-primary" id="bulkActionBtn" disabled>Apply</button>
+        </form>
+    </div>
+    
+    <div class="crm-card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover crm-table mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;">
+                            <input class="form-check-input" type="checkbox" id="selectAll">
+                        </th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Tags</th>
+                        <th>Assigned</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lead in leads %}
+                    <tr>
+                        <td>
+                            <input class="form-check-input lead-checkbox" type="checkbox" value="{{ lead.id }}">
+                        </td>
+                        <td>
+                            <a href="{% url 'crm:lead_detail' lead.id %}" class="fw-bold text-decoration-none">{{ lead.name }}</a>
+                        </td>
+                        <td>{{ lead.phone }}</td>
+                        <td>{{ lead.category|category_label }}</td>
+                        <td><span class="badge bg-{{ lead.status|status_badge }}">{{ lead.status|status_label }}</span></td>
+                        <td>
+                            {% for tag in lead.tags.all %}
+                            <span class="badge" style="background-color: {{ tag.color }};">{{ tag.name }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>{{ lead.assigned_to.name|default:"—" }}</td>
+                        <td>{{ lead.created_at|date:"d M Y" }}</td>
+                        <td>
+                            <a href="{% url 'crm:lead_detail' lead.id %}" class="btn btn-sm btn-light" title="View"><i class="bi bi-eye"></i></a>
+                            <a href="{% url 'crm:lead_edit' lead.id %}" class="btn btn-sm btn-light" title="Edit"><i class="bi bi-pencil"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                            No leads found matching your criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- ===== PAGINATION ===== -->
+    {% if leads.has_other_pages %}
+    <div class="crm-card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">Showing {{ leads.start_index }} to {{ leads.end_index }} of {{ leads.paginator.count }} leads</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if leads.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ leads.previous_page_number }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.category %}&category={{ filters.category }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.section %}&section={{ filters.section }}{% endif %}"><i class="bi bi-chevron-left"></i></a></li>
+                {% else %}
+                <li class="page-item disabled"><a class="page-link" href="#"><i class="bi bi-chevron-left"></i></a></li>
+                {% endif %}
+                
+                {% for i in leads.paginator.page_range %}
+                    {% if leads.number == i %}
+                    <li class="page-item active"><a class="page-link" href="#">{{ i }}</a></li>
+                    {% elif i > leads.number|add:'-3' and i < leads.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ i }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.category %}&category={{ filters.category }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.section %}&section={{ filters.section }}{% endif %}">{{ i }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if leads.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ leads.next_page_number }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.category %}&category={{ filters.category }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.section %}&section={{ filters.section }}{% endif %}"><i class="bi bi-chevron-right"></i></a></li>
+                {% else %}
+                <li class="page-item disabled"><a class="page-link" href="#"><i class="bi bi-chevron-right"></i></a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const leadCheckboxes = document.querySelectorAll('.lead-checkbox');
+    const bulkActionSelect = document.getElementById('bulkActionSelect');
+    const bulkActionBtn = document.getElementById('bulkActionBtn');
+    const bulkStatusSelect = document.getElementById('bulkStatusSelect');
+    const bulkUserSelect = document.getElementById('bulkUserSelect');
+    const bulkActionForm = document.getElementById('bulkActionForm');
+
+    // Toggle all checkboxes
+    if(selectAll) {
+        selectAll.addEventListener('change', function() {
+            leadCheckboxes.forEach(cb => {
+                cb.checked = this.checked;
+            });
+            updateBulkActionState();
+        });
+    }
+
+    // Individual checkbox toggle
+    leadCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            const allChecked = Array.from(leadCheckboxes).every(c => c.checked);
+            const someChecked = Array.from(leadCheckboxes).some(c => c.checked);
+            
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+            
+            updateBulkActionState();
+        });
+    });
+
+    // Enable/disable bulk action dropdown based on selection
+    function updateBulkActionState() {
+        const checkedCount = document.querySelectorAll('.lead-checkbox:checked').length;
+        bulkActionSelect.disabled = checkedCount === 0;
+        
+        if (checkedCount === 0) {
+            bulkActionSelect.value = '';
+            bulkActionBtn.disabled = true;
+            bulkStatusSelect.classList.add('d-none');
+            if(bulkUserSelect) bulkUserSelect.classList.add('d-none');
+        } else {
+            // Trigger change to re-evaluate button state if an option is already selected
+            bulkActionSelect.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // Show secondary dropdown based on primary action selected
+    bulkActionSelect.addEventListener('change', function() {
+        const action = this.value;
+        
+        bulkStatusSelect.classList.add('d-none');
+        if(bulkUserSelect) bulkUserSelect.classList.add('d-none');
+        
+        if (action === 'change_status') {
+            bulkStatusSelect.classList.remove('d-none');
+            bulkActionBtn.disabled = bulkStatusSelect.value === '';
+        } else if (action === 'assign_user' && bulkUserSelect) {
+            bulkUserSelect.classList.remove('d-none');
+            bulkActionBtn.disabled = bulkUserSelect.value === '';
+        } else if (action === 'export') {
+            bulkActionBtn.disabled = false;
+        } else {
+            bulkActionBtn.disabled = true;
+        }
+    });
+
+    // Enable Apply button when secondary option selected
+    bulkStatusSelect.addEventListener('change', function() {
+        bulkActionBtn.disabled = this.value === '';
+    });
+    
+    if(bulkUserSelect) {
+        bulkUserSelect.addEventListener('change', function() {
+            bulkActionBtn.disabled = this.value === '';
+        });
+    }
+
+    // Submit form with selected IDs
+    bulkActionBtn.addEventListener('click', function() {
+        // Remove old hidden inputs
+        document.querySelectorAll('input[name="lead_ids"]').forEach(el => el.remove());
+        
+        // Add current selections
+        document.querySelectorAll('.lead-checkbox:checked').forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'lead_ids';
+            input.value = cb.value;
+            bulkActionForm.appendChild(input);
+        });
+        
+        bulkActionForm.submit();
+    });
+});
+</script>
+{% endblock %}

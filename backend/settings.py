@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "ota",
     "solar",
     "sells",
+    "CRM",
 ]
 
 # ----------------------------
@@ -105,6 +106,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "CRM.context_processors.crm_context",
             ],
         },
     },
@@ -266,3 +268,17 @@ JAZZMIN_SETTINGS = {
 JAZZMIN_UI_TWEAKS = {
     "custom_css": "css/custom_admin.css",
 }
+
+# ----------------------------
+# CRM Settings
+# ----------------------------
+LOGIN_URL = '/crm/auth/login/'
+SESSION_COOKIE_AGE = 86400 * 30  # 30 days
+SESSION_SAVE_EVERY_REQUEST = True
+
+# ----------------------------
+# WhatsApp / Baileys Gateway
+# ----------------------------
+WHATSAPP_API_URL = os.getenv('WHATSAPP_API_URL', 'http://127.0.0.1:4001')
+WHATSAPP_API_KEY = os.getenv('WHATSAPP_API_KEY', 'EZRUN_SECRET_2026')
+

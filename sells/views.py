@@ -38,7 +38,7 @@ def invoice_create(request):
             logger.debug(f"All POST data: {dict(request.POST)}")
             
             # Validate product selection
-            if product_name not in ['Solar Wash Controller', 'Shutter Controller']:
+            if product_name not in ['Solar Wash Controller', 'Shutter Controller','Customized Controller']:
                 return JsonResponse({
                     'success': False,
                     'errors': {'product_name': 'Please select a valid product'}

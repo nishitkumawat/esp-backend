@@ -1,0 +1,320 @@
+{% extends "crm/base.html" %}
+{% load crm_tags %}
+
+{% block title %}Dashboard - EZRun CRM{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Welcome back, {{ crm_user.name }}</p>
+</div>
+
+<!-- ===== STAT CARDS ===== -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl">
+        <div class="stat-card stat-total">
+            <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="stat-value">{{ total_leads }}</div>
+            <div class="stat-label">Total Leads</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="stat-card stat-new">
+            <div class="stat-icon"><i class="bi bi-plus-circle-fill"></i></div>
+            <div class="stat-value">{{ new_leads }}</div>
+            <div class="stat-label">New Leads</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="stat-card stat-quote">
+            <div class="stat-icon"><i class="bi bi-file-earmark-text-fill"></i></div>
+            <div class="stat-value">{{ to_quote }}</div>
+            <div class="stat-label">To Quote</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="stat-card stat-sent">
+            <div class="stat-icon"><i class="bi bi-send-fill"></i></div>
+            <div class="stat-value">{{ quote_sent }}</div>
+            <div class="stat-label">Quote Sent</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="stat-card stat-future">
+            <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+            <div class="stat-value">{{ future_leads }}</div>
+            <div class="stat-label">Future Leads</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="stat-card stat-closed">
+            <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="stat-value">{{ deal_closed }}</div>
+            <div class="stat-label">Deal Closed</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl">
+        <div class="stat-card stat-notuseful">
+            <div class="stat-icon"><i class="bi bi-x-circle-fill"></i></div>
+            <div class="stat-value">{{ not_useful }}</div>
+            <div class="stat-label">Not Useful</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CHARTS ===== -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="crm-card">
+            <div class="crm-card-header">
+                <h5><i class="bi bi-pie-chart-fill"></i> Lead Status</h5>
+            </div>
+            <div class="crm-card-body chart-container">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="crm-card">
+            <div class="crm-card-header">
+                <h5><i class="bi bi-bar-chart-fill"></i> Monthly Leads</h5>
+            </div>
+            <div class="crm-card-body chart-container">
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="crm-card">
+            <div class="crm-card-header">
+                <h5><i class="bi bi-diagram-3-fill"></i> By Category</h5>
+            </div>
+            <div class="crm-card-body chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== FOLLOW-UPS & ACTIVITY ===== -->
+<div class="row g-3 mb-4">
+    <!-- Follow-Up Reminders -->
+    <div class="col-lg-6">
+        <div class="crm-card">
+            <div class="crm-card-header">
+                <h5><i class="bi bi-alarm-fill text-warning"></i> Follow-Up Reminders</h5>
+                <a href="{% url 'crm:followup_list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="crm-card-body">
+                {% if overdue_followups %}
+                <div class="mb-3">
+                    <h6 class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Overdue</h6>
+                    {% for fu in overdue_followups %}
+                    <div class="followup-item overdue">
+                        <div class="followup-info">
+                            <strong>{{ fu.lead.name }}</strong>
+                            <span class="text-muted">{{ fu.date }} {{ fu.time }}</span>
+                        </div>
+                        <span class="badge bg-danger">Overdue</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if today_followups %}
+                <div class="mb-3">
+                    <h6 class="text-primary"><i class="bi bi-calendar-event"></i> Today</h6>
+                    {% for fu in today_followups %}
+                    <div class="followup-item today">
+                        <div class="followup-info">
+                            <strong>{{ fu.lead.name }}</strong>
+                            <span class="text-muted">{{ fu.time }}</span>
+                        </div>
+                        <span class="badge bg-primary">Today</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if upcoming_followups %}
+                <div>
+                    <h6 class="text-secondary"><i class="bi bi-calendar3"></i> Upcoming</h6>
+                    {% for fu in upcoming_followups %}
+                    <div class="followup-item upcoming">
+                        <div class="followup-info">
+                            <strong>{{ fu.lead.name }}</strong>
+                            <span class="text-muted">{{ fu.date }}</span>
+                        </div>
+                        <span class="badge bg-secondary">Upcoming</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if not overdue_followups and not today_followups and not upcoming_followups %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-check-circle fs-1"></i>
+                    <p class="mt-2">No pending follow-ups</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="col-lg-6">
+        <div class="crm-card">
+            <div class="crm-card-header">
+                <h5><i class="bi bi-activity text-info"></i> Activity Feed</h5>
+            </div>
+            <div class="crm-card-body activity-feed">
+                {% for log in activity_feed %}
+                <div class="activity-item">
+                    <div class="activity-dot"></div>
+                    <div class="activity-content">
+                        <p>
+                            <strong>{{ log.user.name|default:"System" }}</strong>
+                            {{ log.action }}
+                            {% if log.lead %}
+                            — <a href="{% url 'crm:lead_detail' log.lead.id %}">{{ log.lead.name }}</a>
+                            {% endif %}
+                        </p>
+                        {% if log.details %}<small class="text-muted">{{ log.details }}</small>{% endif %}
+                        <small class="activity-time">{{ log.created_at|time_ago }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-clock-history fs-1"></i>
+                    <p class="mt-2">No recent activity</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== RECENT LEADS ===== -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="crm-card">
+            <div class="crm-card-header">
+                <h5><i class="bi bi-person-lines-fill"></i> Recent Leads</h5>
+                <a href="{% url 'crm:lead_list' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="crm-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover crm-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                                <th>Assigned To</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lead in recent_leads %}
+                            <tr class="clickable-row" onclick="window.location='{% url 'crm:lead_detail' lead.id %}'">
+                                <td><strong>{{ lead.name }}</strong></td>
+                                <td>{{ lead.phone }}</td>
+                                <td>{{ lead.category|category_label }}</td>
+                                <td><span class="badge bg-{{ lead.status|status_badge }}">{{ lead.status|status_label }}</span></td>
+                                <td>{{ lead.assigned_to.name|default:"—" }}</td>
+                                <td>{{ lead.created_at|date:"d M Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">No leads yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Status Chart (Doughnut)
+    const statusData = {{ status_data|safe }};
+    const statusLabels = {
+        'new': 'New', 'to_quote': 'To Quote', 'quote_sent': 'Quote Sent',
+        'future_lead': 'Future Lead', 'deal_closed': 'Deal Closed', 'not_useful': 'Not Useful'
+    };
+    const statusColors = ['#0d6efd', '#0dcaf0', '#ffc107', '#6c757d', '#198754', '#dc3545'];
+
+    if (statusData.length > 0) {
+        new Chart(document.getElementById('statusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: statusData.map(d => statusLabels[d.status] || d.status),
+                datasets: [{
+                    data: statusData.map(d => d.count),
+                    backgroundColor: statusColors.slice(0, statusData.length),
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+            }
+        });
+    }
+
+    // Monthly Chart (Bar)
+    const monthlyData = {{ monthly_data|safe }};
+    if (monthlyData.length > 0) {
+        new Chart(document.getElementById('monthlyChart'), {
+            type: 'bar',
+            data: {
+                labels: monthlyData.map(d => d.month),
+                datasets: [{
+                    label: 'Leads',
+                    data: monthlyData.map(d => d.count),
+                    backgroundColor: '#FFA50080',
+                    borderColor: '#FFA500',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    }
+
+    // Category Chart (Doughnut)
+    const categoryData = {{ category_data|safe }};
+    const catLabels = { 'solar_structure': 'Solar Structure', 'roll_forming_machine': 'Roll Forming Machine' };
+    if (categoryData.length > 0) {
+        new Chart(document.getElementById('categoryChart'), {
+            type: 'doughnut',
+            data: {
+                labels: categoryData.map(d => catLabels[d.category] || d.category),
+                datasets: [{
+                    data: categoryData.map(d => d.count),
+                    backgroundColor: ['#FFA500', '#FF6B35'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
