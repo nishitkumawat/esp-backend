@@ -15,7 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include   
+from django.urls import path, include
+from django.views.generic import TemplateView
 
 urlpatterns = [
     path('ezrun_admin/', admin.site.urls),
@@ -24,4 +25,5 @@ urlpatterns = [
     path('api/solar/', include('solar.urls')),
     path('sells_frerggewebj3/', include('sells.urls')),
     path('crm/', include('CRM.urls')),
+    path('dsg4wefdsfsd/tracking', TemplateView.as_view(template_name='sells/tracking.html')),
 ]

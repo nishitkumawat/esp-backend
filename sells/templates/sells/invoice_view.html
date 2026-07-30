@@ -126,19 +126,21 @@
                                     <th>Product</th>
                                     <th>Quantity</th>
                                     <th>Price Per Unit</th>
-                                    <th>Total</th>
+                                    <th class="text-end">Line Total</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                {% for item in invoice.items.all %}
                                 <tr>
-                                    <td>{{ invoice.product_name }}</td>
-                                    <td>{{ invoice.quantity }}</td>
-                                    <td>₹{{ invoice.price_per_unit }}</td>
-                                    <td class="fw-bold">₹{{ invoice.total_amount }}</td>
+                                    <td>{{ item.product_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>₹{{ item.price_per_unit }}</td>
+                                    <td class="fw-bold text-end">₹{{ item.line_total }}</td>
                                 </tr>
+                                {% endfor %}
                                 <tr class="table-primary">
                                     <td colspan="3" class="text-end fw-bold">Grand Total:</td>
-                                    <td class="fw-bold text-primary">₹{{ invoice.total_amount }}</td>
+                                    <td class="fw-bold text-primary text-end">₹{{ invoice.total_amount }}</td>
                                 </tr>
                             </tbody>
                         </table>

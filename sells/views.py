@@ -9,12 +9,15 @@ import os
 import traceback
 from weasyprint import HTML, CSS
 import requests
-from .models import Invoice
+from .models import Invoice, InvoiceItem
 from .utils.db_logger import DatabaseLogHandler
 
 # Configure logger with database handler
 logger = logging.getLogger(__name__)
 logger.addHandler(DatabaseLogHandler())
+
+# Valid product names
+VALID_PRODUCTS = {'Solar Wash Controller', 'Shutter Controller', 'Customized Controller'}
 
 # Create your views here.
 
@@ -25,31 +28,26 @@ def invoice_create(request):
     if request.method == 'POST':
         logger.info(f"Processing POST request")
         logger.debug(f"POST data keys: {list(request.POST.keys())}")
-        logger.debug(f"POST data items: {list(request.POST.items())}")
         
         try:
-            # Get form data manually
-            customer_name = request.POST.get('customer_name', '')
-            customer_address = request.POST.get('customer_address', '')
-            phone = request.POST.get('phone', '')
-            product_name = request.POST.get('product_name', '')
-            
-            logger.info(f"Form data received - product_name: {product_name}")
-            logger.debug(f"All POST data: {dict(request.POST)}")
-            
-            # Validate product selection
-            if product_name not in ['Solar Wash Controller', 'Shutter Controller','Customized Controller']:
-                return JsonResponse({
-                    'success': False,
-                    'errors': {'product_name': 'Please select a valid product'}
-                })
-            quantity = request.POST.get('quantity', '1')
-            price_per_unit = request.POST.get('price_per_unit', '0')
-            payment_method = request.POST.get('payment_method', '')
-            shipment_details = request.POST.get('shipment_details', '')
-            notes = request.POST.get('notes', '')
-            
-            # Validate required fields
+            # ── Customer fields ───────────────────────────────────────────────
+            customer_name    = request.POST.get('customer_name', '').strip()
+            customer_address = request.POST.get('customer_address', '').strip()
+            phone            = request.POST.get('phone', '').strip()
+            payment_method   = request.POST.get('payment_method', '').strip()
+            shipment_details = request.POST.get('shipment_details', '').strip()
+            notes            = request.POST.get('notes', '').strip()
+
+            # ── Products (JSON array from hidden field) ───────────────────────
+            products_raw = request.POST.get('products_json', '[]')
+            try:
+                products = json.loads(products_raw)
+            except (json.JSONDecodeError, ValueError):
+                products = []
+
+            logger.debug(f"Products received: {products}")
+
+            # ── Validation ────────────────────────────────────────────────────
             errors = {}
             if not customer_name:
                 errors['customer_name'] = 'Customer name is required'
@@ -57,80 +55,109 @@ def invoice_create(request):
                 errors['customer_address'] = 'Customer address is required'
             if not phone:
                 errors['phone'] = 'Phone number is required'
-            if not product_name:
-                errors['product_name'] = 'Product selection is required'
             if not payment_method:
                 errors['payment_method'] = 'Payment method is required'
-            
+            if not products:
+                errors['products'] = 'At least one product is required'
+
+            # Validate each product line
+            for idx, item in enumerate(products):
+                pname = item.get('product_name', '')
+                if pname not in VALID_PRODUCTS:
+                    errors[f'product_{idx}_name'] = f'Row {idx+1}: Invalid product "{pname}"'
+                try:
+                    qty = int(item.get('quantity', 0))
+                    if qty < 1:
+                        raise ValueError
+                except (TypeError, ValueError):
+                    errors[f'product_{idx}_qty'] = f'Row {idx+1}: Quantity must be a positive integer'
+                try:
+                    price = float(item.get('price_per_unit', -1))
+                    if price < 0:
+                        raise ValueError
+                except (TypeError, ValueError):
+                    errors[f'product_{idx}_price'] = f'Row {idx+1}: Price must be a non-negative number'
+
             if errors:
                 logger.warning(f"Validation errors: {errors}")
-                return JsonResponse({
-                    'success': False,
-                    'errors': errors
-                })
-            
-            logger.info(f"Creating invoice with data: {customer_name}, {product_name}")
-            
-            # Create invoice
+                return JsonResponse({'success': False, 'errors': errors})
+
+            logger.info(f"Creating invoice for: {customer_name}, {len(products)} product(s)")
+
+            # ── Create Invoice ────────────────────────────────────────────────
             invoice = Invoice.objects.create(
                 customer_name=customer_name,
                 customer_address=customer_address,
                 phone=phone,
-                product_name=product_name,
-                quantity=int(quantity) if quantity else 1,
-                price_per_unit=float(price_per_unit) if price_per_unit else 0,
                 payment_method=payment_method,
                 shipment_details=shipment_details,
-                notes=notes
+                notes=notes,
+                total_amount=0,  # will be recalculated after items
             )
-            
-            logger.info(f"Invoice created with ID: {invoice.id}, Invoice No: {invoice.invoice_no}")
-            
-            # Generate PDF on-demand only
+
+            # ── Create InvoiceItems ───────────────────────────────────────────
+            for item in products:
+                qty   = int(item['quantity'])
+                price = float(item['price_per_unit'])
+                InvoiceItem.objects.create(
+                    invoice=invoice,
+                    product_name=item['product_name'],
+                    quantity=qty,
+                    price_per_unit=price,
+                    # line_total is computed in InvoiceItem.save()
+                )
+
+            # ── Recalculate grand total ───────────────────────────────────────
+            invoice.recalculate_total()
+
+            logger.info(f"Invoice created: {invoice.invoice_no}, total: {invoice.total_amount}")
+
+            # ── Generate PDF ──────────────────────────────────────────────────
             pdf_path = None
             try:
                 pdf_path = generate_invoice_pdf(invoice)
-                logger.info(f"PDF generated temporarily at {pdf_path}")
+                logger.info(f"PDF generated at {pdf_path}")
             except Exception as e:
                 logger.error(f"PDF generation failed: {e}")
-                logger.error(f"Traceback: {traceback.format_exc()}")
-                # Continue without PDF for now
-                pdf_path = None
-            
-            # Send WhatsApp message
+                logger.error(traceback.format_exc())
+
+            # ── Send WhatsApp ─────────────────────────────────────────────────
             try:
                 send_whatsapp_invoice(invoice, pdf_path)
                 invoice.whatsapp_status = 'SENT'
                 invoice.whatsapp_sent_at = timezone.now()
-                logger.info(f"WhatsApp sent successfully to {invoice.phone}")
+                logger.info(f"WhatsApp sent to {invoice.phone}")
             except Exception as e:
                 invoice.whatsapp_status = 'FAILED'
                 invoice.whatsapp_error = str(e)
-                logger.error(f"WhatsApp sending failed: {e}")
-                logger.error(f"Traceback: {traceback.format_exc()}")
-            
-            invoice.save()
-            
-            logger.info(f"Invoice creation completed successfully")
-            
+                logger.error(f"WhatsApp failed: {e}")
+                logger.error(traceback.format_exc())
+
+            Invoice.objects.filter(pk=invoice.pk).update(
+                whatsapp_status=invoice.whatsapp_status,
+                whatsapp_sent_at=invoice.whatsapp_sent_at,
+                whatsapp_error=invoice.whatsapp_error,
+            )
+
+            logger.info("Invoice creation completed successfully")
+
             return JsonResponse({
                 'success': True,
                 'invoice_no': invoice.invoice_no,
-                'message': 'Receipt created successfully!'
+                'message': 'Receipt created successfully!',
             })
-            
+
         except Exception as e:
             logger.error(f"Unexpected error in invoice creation: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(traceback.format_exc())
             return JsonResponse({
                 'success': False,
-                'message': 'An unexpected error occurred. Please try again.'
+                'message': 'An unexpected error occurred. Please try again.',
             })
     
     else:
         # GET request - display form
         try:
-            # Get next invoice number for display
             last_invoice = Invoice.objects.all().order_by('-created_at').first()
             if last_invoice and last_invoice.invoice_no:
                 try:
@@ -141,45 +168,19 @@ def invoice_create(request):
                 last_seq = 0
             next_seq = last_seq + 1
             next_invoice_no = f"INV-{timezone.now().strftime('%Y%m%d')}-{next_seq:04d}"
-            
+
             context = {
                 'next_invoice_no': next_invoice_no,
-                'products': [
-                    ('Solar Wash Controller', 'Solar Wash Controller','Customized Controller'),
-                    ('Shutter Controller', 'Shutter Controller','Customized Controller')
-                ]
+                'products': list(VALID_PRODUCTS),
             }
-            
             return render(request, 'sells/invoice_create.html', context)
-            
+
         except Exception as e:
             logger.error(f"Error rendering invoice creation form: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(traceback.format_exc())
             return render(request, 'sells/invoice_create.html', {
                 'error': 'An error occurred while loading the form.'
             })
-    
-    # Get next invoice number for display
-    last_invoice = Invoice.objects.all().order_by('-created_at').first()
-    if last_invoice and last_invoice.invoice_no:
-        try:
-            last_seq = int(last_invoice.invoice_no.split('-')[-1])
-        except (ValueError, IndexError):
-            last_seq = 0
-    else:
-        last_seq = 0
-    next_seq = last_seq + 1
-    next_invoice_no = f"INV-{timezone.now().strftime('%Y%m%d')}-{next_seq:04d}"
-    
-    context = {
-        'next_invoice_no': next_invoice_no,
-        'products': [
-            ('Solar Wash Controller', 'Solar Wash Controller','Customized Controller'),
-            ('Shutter Controller', 'Shutter Controller','Customized Controller')
-        ]
-    }
-    
-    return render(request, 'sells/invoice_create.html', context)
 
 def invoice_list(request):
     """List all invoices with search functionality"""
@@ -208,7 +209,7 @@ def invoice_list(request):
         
     except Exception as e:
         logger.error(f"Error loading invoice list: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(traceback.format_exc())
         return render(request, 'sells/invoice_list.html', {
             'error': 'An error occurred while loading invoices.'
         })
@@ -221,7 +222,7 @@ def invoice_view(request, invoice_no):
         return render(request, 'sells/invoice_view.html', {'invoice': invoice})
     except Exception as e:
         logger.error(f"Error viewing invoice {invoice_no}: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(traceback.format_exc())
         return render(request, 'sells/invoice_view.html', {
             'error': 'An error occurred while loading the invoice.'
         })
@@ -243,7 +244,7 @@ def invoice_pdf(request, invoice_no):
             return response
     except Exception as e:
         logger.error(f"Error generating PDF for invoice {invoice_no}: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(traceback.format_exc())
         return HttpResponse("PDF generation failed", status=500)
 
 def invoice_delete(request, invoice_id):
@@ -273,7 +274,7 @@ def invoice_delete(request, invoice_id):
             })
     except Exception as e:
         logger.error(f"Error deleting invoice {invoice_id}: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(traceback.format_exc())
         return JsonResponse({
             'success': False,
             'message': 'An error occurred while deleting the invoice.'
@@ -377,4 +378,3 @@ www.ezrun.in | +91 99744 86076"""
     except Exception as e:
         print(f"Error sending WhatsApp: {str(e)}")
         raise
-

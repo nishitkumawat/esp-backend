@@ -18,7 +18,7 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-8 mx-auto">
+    <div class="col-lg-10 mx-auto">
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">
@@ -28,6 +28,8 @@
             <div class="card-body">
                 <form id="invoiceForm" method="post" onsubmit="return false;">
                     {% csrf_token %}
+                    <!-- Hidden field that carries all product rows as JSON -->
+                    <input type="hidden" id="products_json" name="products_json" value="[]">
                     
                     <!-- Company Header -->
                     <div class="alert alert-info mb-4">
@@ -56,14 +58,6 @@
                                 <p class="mb-1 small">
                                     <strong>Date:</strong> <span id="currentDate"></span>
                                 </p>
-                                <p class="mb-0 small">
-                                    <strong>Payment Method:</strong> 
-                                    <select id="paymentMethodSelect" class="form-select form-select-sm">
-                                        <option value="UPI">UPI</option>
-                                        <option value="Cash">Cash</option>
-                                        <option value="Bank Transfer">Bank Transfer</option>
-                                    </select>
-                                </p>
                             </div>
                         </div>
                     </div>
@@ -79,18 +73,12 @@
                                     Customer Name <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="customer_name" name="customer_name" class="form-control" placeholder="Enter customer name" required>
-                                <div class="invalid-feedback">
-                                    Please provide a valid customer name.
-                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="phone" class="form-label">
                                     Phone Number <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="phone" name="phone" class="form-control" placeholder="Enter 10-digit phone number" pattern="[0-9]{10}" maxlength="10" minlength="10" required>
-                                <div class="invalid-feedback">
-                                    Please provide a valid phone number.
-                                </div>
                             </div>
                         </div>
                         <div class="row">
@@ -99,57 +87,53 @@
                                     Customer Address <span class="text-danger">*</span>
                                 </label>
                                 <textarea id="customer_address" name="customer_address" class="form-control" placeholder="Enter customer address" rows="3" required></textarea>
-                                <div class="invalid-feedback">
-                                    Please provide a valid address.
-                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Product Details -->
+                    <!-- Product Details (multi-row) -->
                     <div class="mb-4">
-                        <h6 class="mb-3">
-                            <i class="fas fa-box me-2 text-primary"></i>Product Details
-                        </h6>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="product_name" class="form-label">
-                                    Product
-                                </label>
-                                <select id="product_name" name="product_name" class="form-select" required>
-                                    <option value="" disabled selected>Select a Product...</option>
-                                    <option value="Solar Wash Controller">Solar Wash Controller</option>
-                                    <option value="Shutter Controller">Shutter Controller</option>
-                                    <option value="Customized Controller">Customized Controller</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="quantity" class="form-label">
-                                    Quantity
-                                </label>
-                                <input type="number" id="quantity" name="quantity" class="form-control" min="1" value="1" required>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label for="price_per_unit" class="form-label">
-                                    Price Per Unit (₹)
-                                </label>
-                                <input type="number" id="price_per_unit" name="price_per_unit" class="form-control" step="0.01" min="0" required>
-                            </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">
+                                <i class="fas fa-box me-2 text-primary"></i>Product Details
+                            </h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="addProductBtn">
+                                <i class="fas fa-plus me-1"></i>Add Product
+                            </button>
                         </div>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="alert alert-success">
-                                    <h6 class="mb-2">Total Amount</h6>
-                                    <h3 class="mb-0 text-success" id="totalAmount">₹0.00</h3>
-                                </div>
-                            </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle" id="productTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="min-width:200px;">Product</th>
+                                        <th style="width:110px;">Qty</th>
+                                        <th style="width:160px;">Price/Unit (₹)</th>
+                                        <th style="width:150px;" class="text-end">Line Total</th>
+                                        <th style="width:60px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productRows">
+                                    <!-- rows injected by JS -->
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-success">
+                                        <td colspan="3" class="text-end fw-bold">Grand Total</td>
+                                        <td class="text-end fw-bold fs-5 text-success" id="grandTotal">₹0.00</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div id="productError" class="text-danger small d-none">
+                            <i class="fas fa-exclamation-circle me-1"></i>Please add at least one product.
                         </div>
                     </div>
 
                     <!-- Payment & Shipment -->
                     <div class="mb-4">
                         <h6 class="mb-3">
-                            <i class="fas fa-credit-card me-2 text-primary"></i>Payment & Shipment
+                            <i class="fas fa-credit-card me-2 text-primary"></i>Payment &amp; Shipment
                         </h6>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -159,8 +143,8 @@
                                 <select id="payment_method" name="payment_method" class="form-select" required>
                                     <option value="" disabled selected>Select Payment Method</option>
                                     <option value="UPI">UPI</option>
-                                    <option value="Cash">Cash</option>
-                                    <option value="Bank Transfer">Bank Transfer</option>
+                                    <option value="CASH">Cash</option>
+                                    <option value="BANK_TRANSFER">Bank Transfer</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
@@ -190,15 +174,10 @@
                                 <a href="{% url 'sells:invoice_list' %}" class="btn btn-secondary">
                                     <i class="fas fa-times me-1"></i>Cancel
                                 </a>
-                                <div>
-                                    <button type="button" class="btn btn-outline-primary me-2" onclick="previewInvoice()">
-                                        <i class="fas fa-eye me-1"></i>Preview
-                                    </button>
-                                    <button type="submit" class="btn btn-primary" id="submitBtn">
-                                        <span class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
-                                        <i class="fas fa-save me-1"></i>Generate Invoice
-                                    </button>
-                                </div>
+                                <button type="submit" class="btn btn-primary" id="submitBtn">
+                                    <span class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
+                                    <i class="fas fa-save me-1"></i>Generate Invoice
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -220,156 +199,179 @@
 
 {% block extra_js %}
 <script>
-console.log('=== DEBUGGING INVOICE CREATE PAGE ===');
-console.log('1. Checking if elements exist...');
+// ── Product row template ───────────────────────────────────────────────────
+const PRODUCTS = [
+    'Solar Wash Controller',
+    'Shutter Controller',
+    'Customized Controller',
+];
 
-// Check if all required elements exist
-const elements = {
-    customerName: document.getElementById('customer_name'),
-    customerAddress: document.getElementById('customer_address'), 
-    phone: document.getElementById('phone'),
-    productSelect: document.getElementById('product_name'),
-    quantity: document.getElementById('quantity'),
-    pricePerUnit: document.getElementById('price_per_unit'),
-    totalAmount: document.getElementById('totalAmount'),
-    form: document.getElementById('invoiceForm'),
-    submitBtn: document.getElementById('submitBtn')
-};
+let rowIndex = 0;
 
-console.log('Elements found:', {
-    customerName: !!elements.customerName,
-    customerAddress: !!elements.customerAddress,
-    phone: !!elements.phone,
-    productSelect: !!elements.productSelect,
-    quantity: !!elements.quantity,
-    pricePerUnit: !!elements.pricePerUnit,
-    totalAmount: !!elements.totalAmount,
-    form: !!elements.form,
-    submitBtn: !!elements.submitBtn
-});
-
-console.log('2. Checking product select options...');
-if (elements.productSelect) {
-    console.log('Product select found:', elements.productSelect);
-    console.log('Product select options:', elements.productSelect.options);
-    for (let i = 0; i < elements.productSelect.options.length; i++) {
-        console.log(`Option ${i}:`, elements.productSelect.options[i]);
-    }
+function buildProductOptions(selected = '') {
+    return PRODUCTS.map(p =>
+        `<option value="${p}" ${p === selected ? 'selected' : ''}>${p}</option>`
+    ).join('');
 }
 
-// Add form submission flag to prevent automatic submissions
-    let isFormSubmitting = false;
+function createRow(data = {}) {
+    const idx = rowIndex++;
+    const productName   = data.product_name   || '';
+    const qty           = data.quantity        || 1;
+    const pricePerUnit  = data.price_per_unit  || '';
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('3. Page loaded, setting up event listeners');
-    
-    // Calculate total amount
-    function calculateTotal() {
-        if (elements.quantity && elements.pricePerUnit && elements.totalAmount) {
-            const quantity = parseFloat(elements.quantity.value) || 0;
-            const price = parseFloat(elements.pricePerUnit.value) || 0;
-            const total = quantity * price;
-            elements.totalAmount.textContent = '₹' + total.toFixed(2);
-            console.log('Total calculated:', total);
+    const tr = document.createElement('tr');
+    tr.dataset.idx = idx;
+    tr.innerHTML = `
+        <td>
+            <select class="form-select form-select-sm product-name" data-idx="${idx}" required>
+                <option value="" disabled ${!productName ? 'selected' : ''}>Select product…</option>
+                ${buildProductOptions(productName)}
+            </select>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm qty-input" data-idx="${idx}"
+                   value="${qty}" min="1" required>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm price-input" data-idx="${idx}"
+                   value="${pricePerUnit}" min="0" step="0.01" placeholder="0.00" required>
+        </td>
+        <td class="text-end fw-bold line-total" data-idx="${idx}">₹0.00</td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-row" data-idx="${idx}" title="Remove">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </td>
+    `;
+
+    // Wire up change listeners
+    tr.querySelector('.product-name').addEventListener('change', recalculate);
+    tr.querySelector('.qty-input').addEventListener('input', recalculate);
+    tr.querySelector('.price-input').addEventListener('input', recalculate);
+    tr.querySelector('.remove-row').addEventListener('click', function () {
+        tr.remove();
+        recalculate();
+        toggleRemoveButtons();
+    });
+
+    return tr;
+}
+
+function recalculate() {
+    let grand = 0;
+    document.querySelectorAll('#productRows tr').forEach(tr => {
+        const qty   = parseFloat(tr.querySelector('.qty-input').value)   || 0;
+        const price = parseFloat(tr.querySelector('.price-input').value) || 0;
+        const line  = qty * price;
+        grand += line;
+        tr.querySelector('.line-total').textContent = '₹' + line.toFixed(2);
+    });
+    document.getElementById('grandTotal').textContent = '₹' + grand.toFixed(2);
+}
+
+function toggleRemoveButtons() {
+    const rows = document.querySelectorAll('#productRows tr');
+    rows.forEach(tr => {
+        tr.querySelector('.remove-row').disabled = rows.length === 1;
+    });
+}
+
+function addRow(data = {}) {
+    const tbody = document.getElementById('productRows');
+    const tr = createRow(data);
+    tbody.appendChild(tr);
+    recalculate();
+    toggleRemoveButtons();
+}
+
+function collectProducts() {
+    const rows = document.querySelectorAll('#productRows tr');
+    const products = [];
+    let valid = true;
+    rows.forEach(tr => {
+        const pname = tr.querySelector('.product-name').value;
+        const qty   = parseInt(tr.querySelector('.qty-input').value, 10);
+        const price = parseFloat(tr.querySelector('.price-input').value);
+        if (!pname || !qty || isNaN(price)) { valid = false; return; }
+        products.push({ product_name: pname, quantity: qty, price_per_unit: price });
+    });
+    return valid ? products : null;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    // Set current date
+    document.getElementById('currentDate').textContent =
+        new Date().toLocaleDateString('en-GB');
+
+    // Start with one empty row
+    addRow();
+
+    // Add Product button
+    document.getElementById('addProductBtn').addEventListener('click', function () {
+        addRow();
+    });
+
+    // Phone validation
+    document.getElementById('phone').addEventListener('input', function () {
+        this.setCustomValidity(/^[0-9]{10}$/.test(this.value)
+            ? '' : 'Please enter a valid 10-digit phone number');
+    });
+
+    // Form submission
+    let isSubmitting = false;
+    const form = document.getElementById('invoiceForm');
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (isSubmitting) return;
+
+        // Basic HTML5 validation
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
         }
-    }
 
-    // Add event listeners
-    if (elements.quantity) {
-        elements.quantity.addEventListener('input', calculateTotal);
-    }
-    if (elements.pricePerUnit) {
-        elements.pricePerUnit.addEventListener('input', calculateTotal);
-    }
-    if (elements.form) {
-        elements.form.addEventListener('submit', function(e) {
-            console.log('4. Form submitted');
-            console.log('Form data:', {
-                customerName: elements.customerName?.value,
-                customerAddress: elements.customerAddress?.value,
-                phone: elements.phone?.value,
-                product_name: elements.productSelect?.value,
-                quantity: elements.quantity?.value,
-                price_per_unit: elements.pricePerUnit?.value
-            });
-            
-            e.preventDefault();
-            
-            // Prevent multiple submissions
-            if (isFormSubmitting) {
-                console.log('Form already submitting, preventing duplicate submission');
-                return false;
-            }
-            
-            // Validate form before submission
-            const customerName = elements.customerName?.value || '';
-            const customerAddress = elements.customerAddress?.value || '';
-            const phone = elements.phone?.value || '';
-            
-            if (!customerName || !customerAddress || !phone) {
-                showAlert('Please fill in all required fields (Customer Name, Address, and Phone)', 'danger');
-                return false;
-            }
-            
-            // Set submission flag
-            isFormSubmitting = true;
-            
-            // Show loading
-            document.querySelector('.loading-spinner').style.display = 'flex';
-            elements.submitBtn.disabled = true;
-            
-            // Submit form via AJAX
-            const formData = new FormData(this);
-            
-            fetch('{% url "sells:invoice_create" %}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('5. Response received:', data);
-                if (data.success) {
-                    showAlert(`Invoice ${data.invoice_no} created successfully!`, 'success');
-                    setTimeout(() => {
-                        window.location.href = '{% url "sells:invoice_list" %}';
-                    }, 2000);
-                } else {
-                    showAlert('Error: ' + JSON.stringify(data.errors), 'danger');
-                }
-            })
-            .catch(error => {
-                console.log('6. AJAX Error:', error);
-                showAlert('An error occurred. Please try again.', 'danger');
-            })
-            .finally(() => {
-                document.querySelector('.loading-spinner').style.display = 'none';
-                elements.submitBtn.disabled = false;
-                isFormSubmitting = false; // Reset flag
-            });
-        });
-    }
-    
-    // Phone number validation
-    if (elements.phone) {
-        elements.phone.addEventListener('input', function() {
-            const phone = this.value;
-            const phoneRegex = /^[0-9]{10}$/;
-            
-            if (phone && !phoneRegex.test(phone)) {
-                this.setCustomValidity('Please enter a valid 10-digit phone number');
+        // Collect & validate products
+        const products = collectProducts();
+        const productError = document.getElementById('productError');
+        if (!products || products.length === 0) {
+            productError.classList.remove('d-none');
+            return;
+        }
+        productError.classList.add('d-none');
+
+        // Inject JSON
+        document.getElementById('products_json').value = JSON.stringify(products);
+
+        isSubmitting = true;
+        document.querySelector('.loading-spinner').style.display = 'flex';
+        document.getElementById('submitBtn').disabled = true;
+
+        const formData = new FormData(form);
+
+        fetch('{% url "sells:invoice_create" %}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(`Invoice ${data.invoice_no} created successfully!`, 'success');
+                setTimeout(() => { window.location.href = '{% url "sells:invoice_list" %}'; }, 2000);
             } else {
-                this.setCustomValidity('');
+                const msg = data.errors ? JSON.stringify(data.errors) : (data.message || 'Unknown error');
+                showAlert('Error: ' + msg, 'danger');
             }
+        })
+        .catch(() => showAlert('An error occurred. Please try again.', 'danger'))
+        .finally(() => {
+            document.querySelector('.loading-spinner').style.display = 'none';
+            document.getElementById('submitBtn').disabled = false;
+            isSubmitting = false;
         });
-    }
+    });
 });
-
-function previewInvoice() {
-    // Add preview functionality if needed
-    showAlert('Preview feature coming soon!', 'info');
-}
 </script>
 {% endblock %}

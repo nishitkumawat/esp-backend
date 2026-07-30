@@ -45,11 +45,8 @@ class Invoice(models.Model):
     customer_address = models.TextField()
     phone = models.CharField(max_length=10, help_text="Customer phone number")
     
-    # Product Information
-    product_name = models.CharField(max_length=200, default="Solar Wash Controller")
-    quantity = models.PositiveIntegerField(default=1)
-    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
+    # Total amount (computed from InvoiceItems via recalculate_total)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     # Payment and Shipping
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
@@ -75,11 +72,14 @@ class Invoice(models.Model):
         # Generate invoice number if not exists
         if not self.invoice_no:
             self.invoice_no = self.generate_invoice_no()
-        
-        # Calculate total amount
-        self.total_amount = self.quantity * self.price_per_unit
-        
         super().save(*args, **kwargs)
+    
+    def recalculate_total(self):
+        """Recompute total_amount from all InvoiceItems and save."""
+        from django.db.models import Sum
+        result = self.items.aggregate(total=Sum('line_total'))
+        self.total_amount = result['total'] or 0
+        Invoice.objects.filter(pk=self.pk).update(total_amount=self.total_amount)
     
     def generate_invoice_no(self):
         """Generate unique invoice number with format: INV-YYYYMMDD-XXXX"""
@@ -108,3 +108,30 @@ class Invoice(models.Model):
     def whatsapp_status_display(self):
         """Get display text for WhatsApp status"""
         return dict(self.WHATSAPP_STATUS_CHOICES).get(self.whatsapp_status, self.whatsapp_status)
+
+
+class InvoiceItem(models.Model):
+    """A single line-item (product) within an Invoice."""
+
+    PRODUCT_CHOICES = [
+        ('Solar Wash Controller', 'Solar Wash Controller'),
+        ('Shutter Controller', 'Shutter Controller'),
+        ('Customized Controller', 'Customized Controller'),
+    ]
+
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    product_name = models.CharField(max_length=200, choices=PRODUCT_CHOICES)
+    quantity = models.PositiveIntegerField(default=1)
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, editable=False, default=0)
+
+    class Meta:
+        verbose_name = "Invoice Item"
+        verbose_name_plural = "Invoice Items"
+
+    def __str__(self):
+        return f"{self.product_name} x{self.quantity} @ ₹{self.price_per_unit}"
+
+    def save(self, *args, **kwargs):
+        self.line_total = self.quantity * self.price_per_unit
+        super().save(*args, **kwargs)

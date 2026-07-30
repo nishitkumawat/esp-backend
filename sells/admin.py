@@ -1,5 +1,28 @@
 from django.contrib import admin
-from .models import ErrorLog
+from .models import ErrorLog, Invoice, InvoiceItem
+
+
+class InvoiceItemInline(admin.TabularInline):
+    model = InvoiceItem
+    extra = 0
+    readonly_fields = ('line_total',)
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(admin.ModelAdmin):
+    list_display = ('invoice_no', 'customer_name', 'phone', 'total_amount', 'payment_method', 'whatsapp_status', 'created_at')
+    list_filter = ('payment_method', 'whatsapp_status', 'created_at')
+    search_fields = ('invoice_no', 'customer_name', 'phone')
+    readonly_fields = ('invoice_no', 'created_at', 'total_amount')
+    inlines = [InvoiceItemInline]
+    ordering = ('-created_at',)
+
+
+@admin.register(InvoiceItem)
+class InvoiceItemAdmin(admin.ModelAdmin):
+    list_display = ('invoice', 'product_name', 'quantity', 'price_per_unit', 'line_total')
+    list_filter = ('product_name',)
+    readonly_fields = ('line_total',)
 
 
 @admin.register(ErrorLog)
