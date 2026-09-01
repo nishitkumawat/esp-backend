@@ -1,5 +1,6 @@
 from django.urls import path
 
+# pyrefly: ignore [missing-import]
 from . import views
 
 urlpatterns = [
@@ -13,6 +14,7 @@ urlpatterns = [
     path("my_devices/", views.my_devices, name="iot-my-devices"),
     path("get_device_type/", views.get_device_type_view, name="iot-get-device-type"),
     path("rename_device/", views.rename_device, name="iot-rename-device"),
+    path("update_name/", views.update_name, name="iot-update-name"),
     path("change_admin/", views.change_admin, name="iot-change-admin"),
     path("control_device/", views.control_device, name="iot-control-device"),
     path("tester/", views.tester, name="iot-tester"),

@@ -721,6 +721,39 @@ def rename_device(request):
     return json_response(True, "Device Renamed")
 
 @csrf_exempt
+def update_name(request):
+    if request.method != "POST":
+        return json_response(False, "POST required", status_code=405)
+
+    data, error = get_json(request)
+    if error:
+        return json_response(False, error, status_code=400)
+
+    missing = require_fields(data, ["user_id", "new_name"])
+    if missing:
+        return json_response(False, f"Missing required fields: {', '.join(missing)}", status_code=400)
+
+    user_id = data["user_id"]
+    new_name = data["new_name"].strip()
+
+    if not new_name:
+        return json_response(False, "Name cannot be empty", status_code=400)
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE iot_users SET name=%s WHERE id=%s",
+                [new_name, user_id],
+            )
+            if cursor.rowcount == 0:
+                return json_response(False, "User not found", status_code=404)
+    except Exception:
+        logger.exception("Update name failure for user %s", user_id)
+        return json_response(False, "Unable to update name right now", status_code=500)
+
+    return json_response(True, "Name updated", name=new_name)
+
+@csrf_exempt
 def change_admin(request):
     if request.method != "POST":
         return json_response(False, "POST required", status_code=405)
