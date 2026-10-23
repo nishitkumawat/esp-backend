@@ -59,7 +59,9 @@ body {
 /* ---- Sidebar ---- */
 .sgi-sidebar {
   width: var(--sgi-sidebar-width);
-  background: var(--sgi-sidebar-bg);
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.75)),
+    url('/static/sgierp/images/crmbg1.png') center / cover no-repeat;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -73,7 +75,9 @@ body {
 .sgi-sidebar.collapsed { width: var(--sgi-sidebar-collapsed); }
 
 .sidebar-brand {
-  background: var(--sgi-sidebar-bg) !important;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.9)),
+    url('/static/sgierp/images/crmbg1.png') center / cover no-repeat !important;
   display: flex;
   /* align-items: left; */
   gap: 10px;
@@ -131,7 +135,7 @@ body {
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
-  color: rgba(255,255,255,0.6);
+  color: rgb(255, 255, 255);
   text-decoration: none;
   font-size: 13.5px; font-weight: 500;
   border-radius: 0;
@@ -565,8 +569,12 @@ body {
    ============================================================ */
 .sgi-auth-body {
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--sgi-sidebar-bg) 0%, #243447 50%, #1E3A4A 100%);
-  display: flex; align-items: center; justify-content: center;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+      url('/static/sgierp/images/crmbg1.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;display: flex; align-items: center; justify-content: center;
   padding: 24px;
 }
 .sgi-auth-card {
