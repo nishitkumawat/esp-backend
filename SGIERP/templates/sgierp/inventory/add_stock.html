@@ -1,0 +1,100 @@
+{% extends 'sgierp/base.html' %}
+{% block title %}Add Stock{% endblock %}
+{% block page_title %}Add Stock{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;">
+<form method="POST" action="{% url 'sgierp:add_stock' %}">
+{% csrf_token %}
+<div class="sgi-card">
+  <div class="sgi-card-header">
+    <div class="sgi-card-title">
+      <div class="card-icon"><i class="bi bi-plus-circle"></i></div>
+      Add Stock
+    </div>
+  </div>
+  <div class="sgi-card-body">
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="item_search">Item <span class="required">*</span></label>
+      <input type="text" class="sgi-input" id="item_search" placeholder="Search item code or name..."
+             oninput="filterAddStockItems()" style="margin-bottom:8px;">
+      <select class="sgi-select" id="item_id" name="item_id" required>
+        <option value="">-- Select Item --</option>
+        {% for item in items %}
+        <option value="{{ item.id }}"
+                data-search="{{ item.code|lower }} {{ item.name|lower }}"
+                {% if selected_item and selected_item.id == item.id %}selected{% endif %}>
+          {{ item.code }} — {{ item.name }} ({{ item.get_unit_display }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="process_id">Process <span class="required">*</span></label>
+      <select class="sgi-select" id="process_id" name="process_id" required>
+        <option value="">-- Select Process --</option>
+        {% for p in processes %}
+        <option value="{{ p.id }}" {% if completed_process and p.id == completed_process.id %}style="font-weight:600;color:var(--sgi-success);"{% endif %}>
+          {{ p.name }}{% if p.is_completed_process %} ✓{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="assigned_id">Assign To</label>
+      <select class="sgi-select" id="assigned_id" name="assigned_id">
+        <option value="">-- No Assignment --</option>
+        {% for a in assignees %}
+        <option value="{{ a.id }}">{{ a.name }}{% if a.department %} ({{ a.department }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="quantity">Quantity <span class="required">*</span></label>
+      <input type="number" class="sgi-input" id="quantity" name="quantity"
+        min="0.01" step="0.01" required placeholder="Units to add">
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="remarks">Remarks</label>
+      <input type="text" class="sgi-input" id="remarks" name="remarks"
+        placeholder="Optional notes">
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:4px;">
+      <button type="submit" class="btn-sgi btn-sgi-primary">
+        <i class="bi bi-plus-circle-fill"></i> Add Stock
+      </button>
+      <a href="{% url 'sgierp:inventory' %}" class="btn-sgi btn-sgi-outline">Cancel</a>
+    </div>
+  </div>
+</div>
+</form>
+</div>
+
+<script>
+function filterAddStockItems() {
+  const searchInput = document.getElementById('item_search');
+  const itemSelect = document.getElementById('item_id');
+  const searchTerm = searchInput.value.toLowerCase();
+
+  for (let i = 0; i < itemSelect.options.length; i++) {
+    const option = itemSelect.options[i];
+    if (option.value === '') {
+      option.style.display = '';
+      continue;
+    }
+    const searchData = option.getAttribute('data-search');
+    if (searchData && searchData.includes(searchTerm)) {
+      option.style.display = '';
+    } else {
+      option.style.display = 'none';
+    }
+  }
+}
+</script>
+{% endblock %}

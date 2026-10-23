@@ -1,0 +1,223 @@
+{% extends 'sgierp/base.html' %}
+{% block title %}Move Stock{% endblock %}
+{% block page_title %}Move Stock{% endblock %}
+{% block breadcrumb %}
+<a href="{% url 'sgierp:inventory' %}" class="breadcrumb-parent">Inventory</a>
+<span class="breadcrumb-sep"><i class="bi bi-chevron-right"></i></span>
+<span class="page-title">Move Stock</span>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;">
+<form method="POST" action="{% url 'sgierp:stock_move' %}">
+{% csrf_token %}
+<div class="sgi-card">
+  <div class="sgi-card-header">
+    <div class="sgi-card-title">
+      <div class="card-icon"><i class="bi bi-arrow-left-right"></i></div>
+      Stock Movement
+    </div>
+  </div>
+  <div class="sgi-card-body">
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="change_unit_toggle" name="change_unit" onchange="toggleConversionMode()" style="width:18px;height:18px;">
+        Change Unit (Convert Item)
+      </label>
+      <small style="color:var(--sgi-text-muted);font-size:12px;">
+        Enable to convert one item to another (convert one item type to a different type)
+      </small>
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="item_search">Item <span class="required">*</span></label>
+      <input type="text" class="sgi-input" id="item_search" placeholder="Search item code or name..." 
+             oninput="filterItems()" style="margin-bottom:8px;">
+      <select class="sgi-select" id="item_id" name="item_id" required onchange="updateSourceProcess()">
+        <option value="">-- Select Item --</option>
+        {% for item_data in items %}
+          {% for entry in item_data.stock_entries %}
+          <option value="{{ item_data.item.id }}"
+                  data-search="{{ item_data.item.code|lower }} {{ item_data.item.name|lower }}"
+                  data-process="{{ entry.process.id }}"
+                  {% if selected_item and selected_item.id == item_data.item.id %}selected{% endif %}>
+            {{ item_data.item.code }} {{ item_data.item.name }} {{ entry.quantity|floatformat:2 }} {{ item_data.item.unit }} @ {{ entry.process.name }}
+          </option>
+          {% endfor %}
+        {% endfor %}
+      </select>
+      <input type="hidden" id="source_process_id" name="source_process_id">
+    </div>
+
+    <div class="sgi-form-group" id="target_item_group" style="display:none;">
+      <label class="sgi-label" for="target_item_id">Convert To Item <span class="required">*</span></label>
+      <select class="sgi-select" id="target_item_id" name="target_item_id">
+        <option value="">-- Select Target Item --</option>
+        {% for item_data in items %}
+        <option value="{{ item_data.item.id }}">
+          {{ item_data.item.code }} — {{ item_data.item.name }} ({{ item_data.item.unit }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="sgi-form-group" id="target_quantity_group" style="display:none;">
+      <label class="sgi-label" for="target_quantity">Target Quantity <span class="required">*</span></label>
+      <input type="number" class="sgi-input" id="target_quantity" name="target_quantity"
+        min="0.01" step="0.01" placeholder="Quantity of target item to produce">
+      <small style="color:var(--sgi-text-muted);font-size:12px;">
+        Quantity of the converted item that will be produced
+      </small>
+    </div>
+
+    <div class="sgi-form-group" id="to_process_group">
+      <label class="sgi-label" for="to_process_id">To Process <span class="required">*</span></label>
+      <select class="sgi-select" id="to_process_id" name="to_process_id" required onchange="updateAssigneeDropdown()">
+        <option value="">-- Select Destination Process --</option>
+        {% for p in processes %}
+        <option value="{{ p.id }}" data-is-completed="{{ p.is_completed_process|yesno:'true,false' }}" 
+                {% if completed_process and p.id == completed_process.id %}style="font-weight:600;color:var(--sgi-success);"{% endif %}>
+          {{ p.name }}{% if p.is_completed_process %} ✓{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      {% if completed_process %}
+      <button type="button" class="btn-sgi btn-sgi-outline btn-sgi-sm" style="margin-top:6px;" onclick="selectCompletedProcess()">
+        <i class="bi bi-check-circle"></i> Move to {{ completed_process.name }}
+      </button>
+      {% endif %}
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="to_assigned">Assign To (Destination)</label>
+      <select class="sgi-select" id="to_assigned" name="to_assigned">
+        <option value="">-- No Assignment --</option>
+        {% for a in assignees %}
+        <option value="{{ a.id }}">{{ a.name }}{% if a.department %} ({{ a.department }}){% endif %}</option>
+        {% endfor %}
+      </select>
+      <small style="color:var(--sgi-text-muted);font-size:12px;display:none;" id="assignee_hint">
+        Assignee is not required for Completed process
+      </small>
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="quantity">Quantity <span class="required">*</span></label>
+      <input type="number" class="sgi-input" id="quantity" name="quantity"
+        value="{{ form_data.quantity|default:'' }}"
+        min="0.01" step="0.01" required placeholder="Units to move">
+    </div>
+
+    <div class="sgi-form-group">
+      <label class="sgi-label" for="notes">Notes</label>
+      <input type="text" class="sgi-input" id="notes" name="notes"
+        value="{{ form_data.notes|default:'' }}"
+        placeholder="Optional notes">
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:4px;">
+      <button type="submit" class="btn-sgi btn-sgi-primary">
+        <i class="bi bi-arrow-right-circle-fill"></i> Move Stock
+      </button>
+      <a href="{% url 'sgierp:inventory' %}" class="btn-sgi btn-sgi-outline">Cancel</a>
+    </div>
+  </div>
+</div>
+</form>
+</div>
+
+<script>
+function toggleConversionMode() {
+  const toggle = document.getElementById('change_unit_toggle');
+  const targetItemGroup = document.getElementById('target_item_group');
+  const targetQuantityGroup = document.getElementById('target_quantity_group');
+  const toProcessSelect = document.getElementById('to_process_id');
+  const assigneeSelect = document.getElementById('to_assigned');
+  
+  if (toggle.checked) {
+    targetItemGroup.style.display = 'block';
+    targetQuantityGroup.style.display = 'block';
+    assigneeSelect.disabled = false;
+  } else {
+    targetItemGroup.style.display = 'none';
+    targetQuantityGroup.style.display = 'none';
+    updateAssigneeDropdown();
+  }
+}
+
+function filterItems() {
+  const searchInput = document.getElementById('item_search');
+  const itemSelect = document.getElementById('item_id');
+  const searchTerm = searchInput.value.toLowerCase();
+  
+  for (let i = 0; i < itemSelect.options.length; i++) {
+    const option = itemSelect.options[i];
+    if (option.value === '') {
+      option.style.display = '';
+      continue;
+    }
+    
+    const searchData = option.getAttribute('data-search');
+    if (searchData && searchData.includes(searchTerm)) {
+      option.style.display = '';
+    } else {
+      option.style.display = 'none';
+    }
+  }
+}
+
+function updateSourceProcess() {
+  const itemSelect = document.getElementById('item_id');
+  const sourceProcessSelect = document.getElementById('source_process_id');
+  const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+  
+  if (selectedOption.value) {
+    const processId = selectedOption.getAttribute('data-process');
+    if (processId) {
+      sourceProcessSelect.value = processId;
+    }
+  } else {
+    sourceProcessSelect.value = '';
+  }
+}
+
+function updateAssigneeDropdown() {
+  const toProcessSelect = document.getElementById('to_process_id');
+  const assigneeSelect = document.getElementById('to_assigned');
+  const assigneeHint = document.getElementById('assignee_hint');
+  const selectedOption = toProcessSelect.options[toProcessSelect.selectedIndex];
+  
+  if (selectedOption.value) {
+    const isCompleted = selectedOption.getAttribute('data-is-completed') === 'true';
+    if (isCompleted) {
+      assigneeSelect.disabled = true;
+      assigneeSelect.value = '';
+      assigneeHint.style.display = 'block';
+    } else {
+      assigneeSelect.disabled = false;
+      assigneeHint.style.display = 'none';
+    }
+  } else {
+    assigneeSelect.disabled = false;
+    assigneeHint.style.display = 'none';
+  }
+}
+
+function selectCompletedProcess() {
+  const toProcessSelect = document.getElementById('to_process_id');
+  const completedProcessId = '{{ completed_process.id|default:"" }}';
+  
+  if (completedProcessId) {
+    toProcessSelect.value = completedProcessId;
+    updateAssigneeDropdown();
+  }
+}
+
+// Auto-select on page load if item is pre-selected
+document.addEventListener('DOMContentLoaded', function() {
+  updateSourceProcess();
+  updateAssigneeDropdown();
+});
+</script>
+{% endblock %}

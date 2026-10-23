@@ -25,5 +25,6 @@ urlpatterns = [
     path('api/solar/', include('solar.urls')),
     path('sells_frerggewebj3/', include('sells.urls')),
     path('crm/', include('CRM.urls')),
+    path('sgi_erp/', include('SGIERP.urls')),
     path('dsg4wefdsfsd/tracking', TemplateView.as_view(template_name='sells/tracking.html')),
 ]

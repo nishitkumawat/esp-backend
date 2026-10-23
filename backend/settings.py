@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "solar",
     "sells",
     "CRM",
+    "SGIERP",
 ]
 
 # ----------------------------
@@ -107,6 +108,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "CRM.context_processors.crm_context",
+                "SGIERP.context_processors.sgi_context",
             ],
         },
     },
