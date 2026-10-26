@@ -71,7 +71,7 @@
                     </td>
                     <td>
                       {% if entry.assigned_at %}
-                      {{ entry.assigned_at|date:"d M Y, H:i" }}
+                      {{ entry.assigned_at|date:"d M Y, h:i A" }}
                       {% else %}
                       <span style="color:var(--sgi-text-muted);">—</span>
                       {% endif %}
@@ -118,7 +118,7 @@
                   </td>
                   <td>
                     {% if entry.assigned_at %}
-                    {{ entry.assigned_at|date:"d M Y, H:i" }}
+                    {{ entry.assigned_at|date:"d M Y, h:i A" }}
                     {% else %}
                     <span style="color:var(--sgi-text-muted);">—</span>
                     {% endif %}

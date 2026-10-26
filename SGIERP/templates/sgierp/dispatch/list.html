@@ -1,6 +1,10 @@
 {% extends 'sgierp/base.html' %}
+{% load sgi_tags %}
 {% block title %}Dispatch History{% endblock %}
 {% block page_title %}Dispatch History{% endblock %}
+{% block breadcrumb %}
+<span class="page-title">Dispatch History</span>
+{% endblock %}
 
 {% block content %}
 <div class="sgi-card">
@@ -61,12 +65,16 @@
             </a>
             <span style="color:var(--sgi-text-muted);font-size:12px;"> {{ d.machine.name }}</span>
           </td>
-          <td><span class="time-badge">{{ d.dispatch_date|date:"d M Y" }}</span></td>
+          <td><span class="time-badge">{{ d.dispatch_date|date:"d M Y, h:i A" }}</span></td>
           <td><span class="sgi-badge sgi-badge-orange">{{ d.machine_count }} unit{{ d.machine_count|pluralize }}</span></td>
           <td>{{ d.customer_name|default:"—" }}</td>
           <td>{{ d.invoice_reference|default:"—" }}</td>
           <td style="font-size:12px;color:var(--sgi-text-muted);">
-            {{ d.dispatched_by.get_full_name|default:d.dispatched_by.username|default:"—" }}
+            {% if d.dispatched_by %}
+              {{ d.dispatched_by.get_full_name|default:d.dispatched_by.username }}
+            {% else %}
+              —
+            {% endif %}
           </td>
           <td>
             <a href="{% url 'sgierp:dispatch_detail' d.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm">

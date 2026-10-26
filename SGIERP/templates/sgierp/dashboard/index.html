@@ -88,10 +88,10 @@
           </div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-              {{ entry.item.code }} — {{ entry.quantity }} units
+              {{ entry.item.name }} — {{ entry.quantity }} units
             </div>
             <div style="font-size:11px;color:var(--sgi-text-muted);">
-              In {{ entry.process.name }}
+              In {{ entry.process.name }} - {{ entry.assigned_to.name }}
             </div>
           </div>
           <span class="time-badge">{{ entry.updated_at|timesince }} ago</span>

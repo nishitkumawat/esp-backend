@@ -36,7 +36,7 @@
         {% if item.min_stock_level %}
         <span><i class="bi bi-exclamation-triangle"></i> Min Stock: <strong style="color:var(--sgi-text);">{{ item.min_stock_level }}</strong></span>
         {% endif %}
-        <span><i class="bi bi-calendar3"></i> Added {{ item.created_at|date:"d M Y, H:i" }}</span>
+        <span><i class="bi bi-calendar3"></i> Added {{ item.created_at|date:"d M Y, h:i A" }}</span>
         {% if item.created_by %}
         <span><i class="bi bi-person"></i> Created by: <strong style="color:var(--sgi-text);">{{ item.created_by.get_full_name|default:item.created_by.username }}</strong></span>
         {% endif %}
@@ -91,7 +91,7 @@
           </td>
           <td>
             {% if ps.assigned_at %}
-            {{ ps.assigned_at|date:"d M Y, H:i" }}
+            {{ ps.assigned_at|date:"d M Y, h:i A" }}
             {% else %}
             <span class="text-muted">—</span>
             {% endif %}
@@ -140,7 +140,7 @@
       <tbody>
         {% for h in item_history %}
         <tr>
-          <td>{{ h.created_at|date:"d M Y, H:i" }}</td>
+          <td>{{ h.created_at|date:"d M Y, h:i A" }}</td>
           <td>
             {% if h.movement_type == 'add' %}
             <span class="sgi-badge sgi-badge-green">Add</span>

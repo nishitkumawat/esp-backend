@@ -75,7 +75,7 @@
           <td>
             {% if item.created_by %}
             <span style="font-size:12px;">{{ item.created_by.get_full_name|default:item.created_by.username }}</span>
-            <div style="font-size:11px;color:var(--sgi-text-muted);">{{ item.created_at|date:"d M Y, H:i" }}</div>
+            <div style="font-size:11px;color:var(--sgi-text-muted);">{{ item.created_at|date:"d M Y, h:i A" }}</div>
             {% else %}
             <span style="font-size:12px;color:var(--sgi-text-muted);">—</span>
             {% endif %}

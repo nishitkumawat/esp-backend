@@ -143,7 +143,7 @@ def dispatch_create(request):
                 dispatch_date=dispatch_date,
                 invoice_reference=invoice,
                 remarks=remarks,
-                dispatched_by=request.user if request.user.is_authenticated else None,
+                dispatched_by=user,
             )
             messages.success(
                 request,
@@ -177,9 +177,37 @@ def dispatch_detail(request, dispatch_id):
     )
     user = get_sgi_user(request)
 
+    # Calculate blank rows for challan (total 10 rows)
+    components_count = dispatch.components.count()
+    blank_rows = max(0, 10 - components_count)
+
     context = {
         'dispatch': dispatch,
         'components': dispatch.components.all(),
+        'blank_rows': range(blank_rows),
         'page_title': f'Dispatch #{dispatch.id}',
     }
     return render(request, 'sgierp/dispatch/detail.html', context)
+
+
+@sgi_login_required
+def dispatch_challan(request, dispatch_id):
+    """Delivery challan page for printing."""
+    dispatch = get_object_or_404(
+        MachineDispatch.objects.select_related('machine', 'dispatched_by')
+        .prefetch_related('components__item', 'components__source_entry'),
+        id=dispatch_id
+    )
+
+    # Calculate blank rows for challan (total 10 rows)
+    components_count = dispatch.components.count()
+    blank_rows = max(0, 10 - components_count)
+
+    context = {
+        'dispatch': dispatch,
+        'components': dispatch.components.all(),
+        'blank_rows': range(blank_rows),
+        'sgi_user': get_sgi_user(request),
+        'sgi_profile': get_sgi_user(request).erp_profile if get_sgi_user(request) else None,
+    }
+    return render(request, 'sgierp/dispatch/challan.html', context)

@@ -68,6 +68,13 @@ MIDDLEWARE = [
 ROOT_URLCONF = "backend.urls"
 
 # ----------------------------
+# Custom Error Handlers
+# ----------------------------
+handler404 = 'SGIERP.views.common.custom_404'
+handler500 = 'SGIERP.views.common.custom_500'
+handler403 = 'SGIERP.views.common.custom_403'
+
+# ----------------------------
 # CORS (Flutter Friendly)
 # ----------------------------
 CORS_ALLOW_ALL_ORIGINS = True

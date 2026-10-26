@@ -30,6 +30,11 @@ class Process(models.Model):
         verbose_name = 'Manufacturing Process'
         verbose_name_plural = 'Manufacturing Processes'
         ordering = ['order', 'name']
+        indexes = [
+            models.Index(fields=['order'], name='sgi_process_order_idx'),
+            models.Index(fields=['is_active'], name='sgi_process_is_active_idx'),
+            models.Index(fields=['is_completed_process'], name='sgi_process_is_completed_idx'),
+        ]
 
     def __str__(self):
         return self.name
@@ -69,14 +74,19 @@ class Item(models.Model):
         verbose_name = 'Inventory Item'
         verbose_name_plural = 'Inventory Items'
         ordering = ['code']
+        indexes = [
+            models.Index(fields=['code'], name='sgi_item_code_idx'),
+            models.Index(fields=['is_active'], name='sgi_item_is_active_idx'),
+            models.Index(fields=['category'], name='sgi_item_category_idx'),
+        ]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
 
     def total_quantity(self):
-        """Total quantity across all active process entries."""
+        """Total quantity across all process entries."""
         from django.db.models import Sum
-        result = self.process_entries.filter(is_active=True).aggregate(total=Sum('quantity'))
+        result = self.process_entries.aggregate(total=Sum('quantity'))
         return result['total'] or 0
 
     def completed_quantity(self):
@@ -86,7 +96,7 @@ class Item(models.Model):
         if not completed:
             return 0
         result = self.process_entries.filter(
-            process=completed, is_active=True
+            process=completed
         ).aggregate(total=Sum('quantity'))
         return result['total'] or 0
 
@@ -94,7 +104,7 @@ class Item(models.Model):
         """Total quantity in non-Completed processes."""
         from django.db.models import Sum
         completed = Process.objects.filter(is_completed_process=True).first()
-        qs = self.process_entries.filter(is_active=True)
+        qs = self.process_entries.all()
         if completed:
             qs = qs.exclude(process=completed)
         result = qs.aggregate(total=Sum('quantity'))
@@ -122,6 +132,10 @@ class Assignee(models.Model):
         verbose_name = 'Assignee'
         verbose_name_plural = 'Assignees'
         ordering = ['name']
+        indexes = [
+            models.Index(fields=['name'], name='sgi_assignee_name_idx'),
+            models.Index(fields=['is_active'], name='sgi_assignee_is_active_idx'),
+        ]
 
     def __str__(self):
         return self.name
@@ -151,6 +165,11 @@ class ItemProcess(models.Model):
         verbose_name_plural = 'Item Processes'
         unique_together = ['item', 'process']
         ordering = ['item__code', 'process__order', 'process__name']
+        indexes = [
+            models.Index(fields=['item', 'process'], name='sgi_item_process_idx'),
+            models.Index(fields=['quantity'], name='sgi_item_process_qty_idx'),
+            models.Index(fields=['updated_at'], name='sgi_item_process_updated_idx'),
+        ]
 
     def __str__(self):
         return f"{self.item.code} | {self.quantity} {self.item.unit} in {self.process.name}"
@@ -219,6 +238,13 @@ class StockHistory(models.Model):
         verbose_name = 'Stock History'
         verbose_name_plural = 'Stock History'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at'], name='sgi_stock_hist_created_idx'),
+            models.Index(fields=['item'], name='sgi_stock_hist_item_idx'),
+            models.Index(fields=['from_process'], name='sgi_stock_hist_from_idx'),
+            models.Index(fields=['to_process'], name='sgi_stock_hist_to_idx'),
+            models.Index(fields=['movement_type'], name='sgi_stock_hist_type_idx'),
+        ]
 
     def __str__(self):
         return f"{self.movement_type}: {self.item_code_snapshot} ({self.quantity} {self.unit_snapshot}) from {self.from_process_name or 'Initial'} to {self.to_process_name}"
@@ -359,6 +385,64 @@ class OTPToken(models.Model):
 
 
 # ============================================================
+# CHALLAN (Material Transfer Document)
+# ============================================================
+class Challan(models.Model):
+    """Challan for material transfer to external parties."""
+    CHALLAN_TYPE_CHOICES = [
+        ('outward', 'Outward - Sending Material'),
+        ('inward', 'Inward - Receiving Material'),
+    ]
+
+    challan_number = models.CharField(max_length=50, unique=True)
+    challan_type = models.CharField(max_length=20, choices=CHALLAN_TYPE_CHOICES, default='outward')
+    party_name = models.CharField(max_length=200, help_text="Company/Party name")
+    party_address = models.TextField(blank=True, default='')
+    party_contact = models.CharField(max_length=100, blank=True, default='')
+    assignee = models.ForeignKey(
+        Assignee, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='challans'
+    )
+    date = models.DateField()
+    remarks = models.TextField(blank=True, default='')
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='challans_created'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'sgi_challan'
+        verbose_name = 'Challan'
+        verbose_name_plural = 'Challans'
+        ordering = ['-date', '-challan_number']
+
+    def __str__(self):
+        return f"{self.challan_number} - {self.party_name}"
+
+
+class ChallanItem(models.Model):
+    """Items included in a challan."""
+    challan = models.ForeignKey(Challan, on_delete=models.CASCADE, related_name='items')
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='challan_items')
+    process = models.ForeignKey(
+        'Process', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='challan_items'
+    )
+    quantity = models.DecimalField(max_digits=12, decimal_places=2)
+    unit = models.CharField(max_length=10)
+    remarks = models.CharField(max_length=200, blank=True, default='')
+
+    class Meta:
+        db_table = 'sgi_challan_item'
+        verbose_name = 'Challan Item'
+        verbose_name_plural = 'Challan Items'
+
+    def __str__(self):
+        return f"{self.item.code} × {self.quantity} {self.unit}"
+
+
+# ============================================================
 # ERP USER PROFILE (extends Django User)
 # ============================================================
 class ERPUserProfile(models.Model):
@@ -368,9 +452,7 @@ class ERPUserProfile(models.Model):
     """
     ROLE_CHOICES = [
         ('admin', 'Administrator'),
-        ('manager', 'Manager'),
-        ('operator', 'Production Operator'),
-        ('viewer', 'Viewer'),
+        ('operator', 'Operator'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='erp_profile')

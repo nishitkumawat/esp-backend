@@ -35,8 +35,8 @@ def item_catalog(request):
 
     items = items_qs.order_by('code')
 
-    # Get unique categories for filter
-    categories = Item.objects.values_list('category', flat=True).distinct()
+    # Get unique categories for filter - optimize
+    categories = Item.objects.filter(is_active=True).values_list('category', flat=True).distinct()
     categories = sorted([c for c in categories if c])
 
     context = {
@@ -61,9 +61,14 @@ def inventory_list(request):
     status_filter = request.GET.get('status', 'active')
     process_status = request.GET.get('process_status', 'non_completed')  # Default to non-completed
 
-    # Get all items with stock
+    # Get all items with stock - optimize
     entries_qs = ItemProcess.objects.filter(quantity__gt=0).select_related(
         'item', 'process', 'assigned_to'
+    ).only(
+        'id', 'quantity', 'assigned_at',
+        'item__id', 'item__code', 'item__name', 'item__is_active', 'item__unit',
+        'process__id', 'process__name', 'process__order', 'process__is_completed_process',
+        'assigned_to__id', 'assigned_to__name'
     )
 
     if search:
@@ -86,8 +91,8 @@ def inventory_list(request):
 
     entries = entries_qs.order_by('item__code', 'process__order', 'process__name')
 
-    # Get all processes for filter dropdown
-    processes = Process.objects.filter(is_active=True).order_by('order', 'name')
+    # Get all processes for filter dropdown - optimize
+    processes = Process.objects.filter(is_active=True).order_by('order', 'name').only('id', 'name', 'order')
 
     context = {
         'entries': entries,
@@ -135,7 +140,8 @@ def add_stock(request):
                         quantity=qty,
                         assigned_to=assignee,
                         remarks=remarks,
-                        performed_by=user
+                        performed_by=user,
+                        moved_at=timezone.now()
                     )
                     messages.success(request, f'Stock added successfully: {qty} {item.unit} of {item.code} in {process.name}.')
                     return redirect('sgierp:inventory')
@@ -480,13 +486,25 @@ def stock_move_view(request):
 
         try:
             if change_unit:
-                # Conversion mode
+                # Conversion mode - optimize with bulk queries
                 from SGIERP.services import convert_item
-                source_item = Item.objects.get(id=int(item_id))
-                target_item = Item.objects.get(id=int(target_item_id))
-                source_process = Process.objects.get(id=int(source_process_id))
-                target_process = Process.objects.get(id=int(to_process_id))
+                
+                required_ids = [int(item_id), int(target_item_id), int(source_process_id), int(to_process_id)]
+                items = Item.objects.filter(id__in=[int(item_id), int(target_item_id)])
+                processes = Process.objects.filter(id__in=[int(source_process_id), int(to_process_id)])
+                
+                items_map = {item.id: item for item in items}
+                processes_map = {proc.id: proc for proc in processes}
+                
+                source_item = items_map.get(int(item_id))
+                target_item = items_map.get(int(target_item_id))
+                source_process = processes_map.get(int(source_process_id))
+                target_process = processes_map.get(int(to_process_id))
                 to_assigned = Assignee.objects.filter(id=int(to_assigned_id)).first() if to_assigned_id else None
+                
+                if not all([source_item, target_item, source_process, target_process]):
+                    messages.error(request, 'Invalid selection. Please check your inputs.')
+                    return redirect('sgierp:stock_move')
                 
                 convert_item(
                     source_item=source_item,
@@ -497,7 +515,7 @@ def stock_move_view(request):
                     target_quantity=target_qty,
                     assigned_to=to_assigned,
                     remarks=notes,
-                    performed_by=request.user if request.user.is_authenticated else None
+                    performed_by=user
                 )
                 messages.success(request, f'Converted {qty} {source_item.unit} of {source_item.code} @ {source_process.name} to {target_qty} {target_item.unit} of {target_item.code} @ {target_process.name}.')
             else:
@@ -510,7 +528,7 @@ def stock_move_view(request):
                     quantity=qty,
                     assigned_to=to_assigned,
                     remarks=notes,
-                    performed_by=request.user if request.user.is_authenticated else None
+                    performed_by=user
                 )
                 messages.success(request, f'Stock moved successfully.')
             

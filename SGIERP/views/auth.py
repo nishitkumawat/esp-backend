@@ -69,7 +69,7 @@ def forgot_password_view(request):
             'Please check your inbox.'
         )
         try:
-            user = User.objects.get(username=username, is_active=True)
+            user = User.objects.select_related('erp_profile').get(username=username, is_active=True)
             if user.email:
                 token = OTPToken.generate_for_user(user)
                 try:

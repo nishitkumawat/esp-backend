@@ -5,8 +5,10 @@ from SGIERP.views import (
     dashboard,
     item_catalog, inventory_list, item_create, item_edit, item_detail, item_delete, add_stock, inventory_entry_delete, stock_move_view, completed_stock, stock_history, item_groups, process_wise_stock, assignee_wise_stock,
     machine_list, machine_create, machine_edit, machine_detail,
-    dispatch_list, dispatch_create, dispatch_detail,
+    dispatch_list, dispatch_create, dispatch_detail, dispatch_challan,
+    challan_list, challan_create, challan_detail, challan_print,
     settings_view, process_create_edit, process_delete, user_list, user_create_edit, assignee_create_edit, assignee_delete,
+    error_view,
 )
 
 app_name = 'sgierp'
@@ -50,6 +52,13 @@ urlpatterns = [
     path('dispatch/', dispatch_list, name='dispatch_list'),
     path('dispatch/new/', dispatch_create, name='dispatch_create'),
     path('dispatch/<int:dispatch_id>/', dispatch_detail, name='dispatch_detail'),
+    path('dispatch/<int:dispatch_id>/challan/', dispatch_challan, name='dispatch_challan'),
+
+    # ---- Challans ----
+    path('challans/', challan_list, name='challan_list'),
+    path('challans/new/', challan_create, name='challan_create'),
+    path('challans/<int:challan_id>/', challan_detail, name='challan_detail'),
+    path('challans/<int:challan_id>/print/', challan_print, name='challan_print'),
 
     # ---- Admin / Settings ----
     path('settings/', settings_view, name='settings'),
@@ -62,4 +71,8 @@ urlpatterns = [
     path('settings/assignee/add/', assignee_create_edit, name='assignee_create'),
     path('settings/assignee/<int:assignee_id>/edit/', assignee_create_edit, name='assignee_edit'),
     path('settings/assignee/<int:assignee_id>/delete/', assignee_delete, name='assignee_delete'),
+
+    # ---- Error Handling ----
+    path('error/<int:error_code>/', error_view, name='error'),
+    path('error/', error_view, name='error_default'),
 ]

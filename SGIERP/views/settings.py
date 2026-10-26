@@ -73,13 +73,14 @@ def process_create_edit(request, process_id=None):
                 process.save()
                 messages.success(request, f'Process "{name}" updated successfully.')
             else:
+                user = get_sgi_user(request)
                 Process.objects.create(
                     name=name,
                     description=description,
                     is_active=is_active,
                     is_completed_process=is_completed,
                     order=int(order) if order else 0,
-                    created_by=request.user if request.user.is_authenticated else None
+                    created_by=user
                 )
                 messages.success(request, f'Process "{name}" created successfully.')
             return redirect('sgierp:settings')
@@ -254,7 +255,8 @@ def assignee_create_edit(request, assignee_id=None):
         assignee.phone = phone
         assignee.department = department
         assignee.is_active = is_active
-        assignee.created_by = request.user if request.user.is_authenticated else None
+        user = get_sgi_user(request)
+        assignee.created_by = user
         assignee.save()
 
         messages.success(request, f'Assignee "{name}" saved.')

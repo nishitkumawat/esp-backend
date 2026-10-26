@@ -22,7 +22,7 @@
     </div>
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--sgi-text-muted);margin-bottom:4px;">Date</div>
-      <div style="font-size:14px;font-weight:600;">{{ dispatch.dispatch_date|date:"d M Y H:i" }}</div>
+      <div style="font-size:14px;font-weight:600;">{{ dispatch.dispatch_date|date:"d M Y, h:i A" }}</div>
     </div>
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--sgi-text-muted);margin-bottom:4px;">Customer</div>
@@ -34,7 +34,13 @@
     </div>
     <div>
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--sgi-text-muted);margin-bottom:4px;">Dispatched By</div>
-      <div style="font-size:14px;">{{ dispatch.dispatched_by.get_full_name|default:dispatch.dispatched_by.username|default:"—" }}</div>
+      <div style="font-size:14px;">
+        {% if dispatch.dispatched_by %}
+          {{ dispatch.dispatched_by.get_full_name|default:dispatch.dispatched_by.username }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
     </div>
   </div>
   {% if dispatch.remarks %}
@@ -51,6 +57,9 @@
       <div class="card-icon"><i class="bi bi-boxes"></i></div>
       Stock Consumed ({{ components|length }} entries)
     </div>
+    <a href="{% url 'sgierp:dispatch_challan' dispatch.id %}" target="_blank" class="btn-sgi btn-sgi-primary btn-sgi-sm">
+      <i class="bi bi-printer"></i> Print Challan
+    </a>
   </div>
   <div class="sgi-table-wrap">
     {% if components %}

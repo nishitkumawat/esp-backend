@@ -118,6 +118,7 @@
           <th>Count</th>
           <th>Customer</th>
           <th>Invoice</th>
+          <th>By</th>
           <th></th>
         </tr>
       </thead>
@@ -125,10 +126,17 @@
         {% for d in dispatches %}
         <tr>
           <td><strong>#{{ d.id }}</strong></td>
-          <td><span class="time-badge">{{ d.dispatch_date|date:"d M Y" }}</span></td>
+          <td><span class="time-badge">{{ d.dispatch_date|date:"d M Y, h:i A" }}</span></td>
           <td><span class="sgi-badge sgi-badge-orange">{{ d.machine_count }} unit{{ d.machine_count|pluralize }}</span></td>
           <td>{{ d.customer_name|default:"—" }}</td>
           <td>{{ d.invoice_reference|default:"—" }}</td>
+          <td style="font-size:12px;color:var(--sgi-text-muted);">
+            {% if d.dispatched_by %}
+              {{ d.dispatched_by.get_full_name|default:d.dispatched_by.username }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
           <td>
             <a href="{% url 'sgierp:dispatch_detail' d.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm">
               <i class="bi bi-eye"></i>

@@ -16,10 +16,15 @@
   <div class="sgi-card-body">
 
     <div class="sgi-form-group">
-      <label class="sgi-label" for="item_search">Item <span class="required">*</span></label>
-      <input type="text" class="sgi-input" id="item_search" placeholder="Search item code or name..."
-             oninput="filterAddStockItems()" style="margin-bottom:8px;">
-      <select class="sgi-select" id="item_id" name="item_id" required>
+      <label class="sgi-label" for="item_search">
+        <i class="bi bi-box-seam"></i> Item <span class="required">*</span>
+      </label>
+      <div class="sgi-input-group">
+        <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
+        <input type="text" class="sgi-input" id="item_search" placeholder="Search item code or name..."
+               oninput="filterAddStockItems()">
+      </div>
+      <select class="sgi-select" id="item_id" name="item_id" required style="margin-top:8px;">
         <option value="">-- Select Item --</option>
         {% for item in items %}
         <option value="{{ item.id }}"
@@ -32,19 +37,23 @@
     </div>
 
     <div class="sgi-form-group">
-      <label class="sgi-label" for="process_id">Process <span class="required">*</span></label>
+      <label class="sgi-label" for="process_id">
+        <i class="bi bi-diagram-3"></i> Process <span class="required">*</span>
+      </label>
       <select class="sgi-select" id="process_id" name="process_id" required>
         <option value="">-- Select Process --</option>
         {% for p in processes %}
         <option value="{{ p.id }}" {% if completed_process and p.id == completed_process.id %}style="font-weight:600;color:var(--sgi-success);"{% endif %}>
-          {{ p.name }}{% if p.is_completed_process %} ✓{% endif %}
+          {% if p.is_completed_process %}<i class="bi bi-check-circle-fill"></i> {% endif %}{{ p.name }}
         </option>
         {% endfor %}
       </select>
     </div>
 
     <div class="sgi-form-group">
-      <label class="sgi-label" for="assigned_id">Assign To</label>
+      <label class="sgi-label" for="assigned_id">
+        <i class="bi bi-person"></i> Assign To
+      </label>
       <select class="sgi-select" id="assigned_id" name="assigned_id">
         <option value="">-- No Assignment --</option>
         {% for a in assignees %}
@@ -54,22 +63,34 @@
     </div>
 
     <div class="sgi-form-group">
-      <label class="sgi-label" for="quantity">Quantity <span class="required">*</span></label>
-      <input type="number" class="sgi-input" id="quantity" name="quantity"
-        min="0.01" step="0.01" required placeholder="Units to add">
+      <label class="sgi-label" for="quantity">
+        <i class="bi bi-123"></i> Quantity <span class="required">*</span>
+      </label>
+      <div class="sgi-input-group">
+        <span class="sgi-input-icon"><i class="bi bi-hash"></i></span>
+        <input type="number" class="sgi-input" id="quantity" name="quantity"
+          min="0.01" step="0.01" required placeholder="Units to add">
+      </div>
     </div>
 
     <div class="sgi-form-group">
-      <label class="sgi-label" for="remarks">Remarks</label>
-      <input type="text" class="sgi-input" id="remarks" name="remarks"
-        placeholder="Optional notes">
+      <label class="sgi-label" for="remarks">
+        <i class="bi bi-chat-text"></i> Remarks
+      </label>
+      <div class="sgi-input-group">
+        <span class="sgi-input-icon"><i class="bi bi-pencil"></i></span>
+        <input type="text" class="sgi-input" id="remarks" name="remarks"
+          placeholder="Optional notes">
+      </div>
     </div>
 
-    <div style="display:flex;gap:12px;margin-top:4px;">
+    <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
       <button type="submit" class="btn-sgi btn-sgi-primary">
         <i class="bi bi-plus-circle-fill"></i> Add Stock
       </button>
-      <a href="{% url 'sgierp:inventory' %}" class="btn-sgi btn-sgi-outline">Cancel</a>
+      <a href="{% url 'sgierp:inventory' %}" class="btn-sgi btn-sgi-outline">
+        <i class="bi bi-x-circle"></i> Cancel
+      </a>
     </div>
   </div>
 </div>

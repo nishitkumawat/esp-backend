@@ -10,7 +10,7 @@
 {% block content %}
 <form method="POST" action="{% url 'sgierp:dispatch_create' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">
 {% csrf_token %}
-<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start;">
+<div style="display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start;" class="dispatch-form-grid">
 
   <!-- Left -->
   <div>
@@ -21,7 +21,9 @@
       <div class="sgi-card-body">
         <div class="form-grid">
           <div class="sgi-form-group">
-            <label class="sgi-label" for="machineSelect">Machine <span class="required">*</span></label>
+            <label class="sgi-label" for="machineSelect">
+              <i class="bi bi-gear"></i> Machine <span class="required">*</span>
+            </label>
             <select class="sgi-select" id="machineSelect" name="machine_id" required>
               <option value="">-- Select Machine --</option>
               {% for m in machines %}
@@ -32,9 +34,14 @@
             </select>
           </div>
           <div class="sgi-form-group">
-            <label class="sgi-label" for="machineCount">No. of Machines <span class="required">*</span></label>
-            <input type="number" class="sgi-input" id="machineCount" name="machine_count"
-              value="{{ machine_count|default:1 }}" min="1" step="1" required>
+            <label class="sgi-label" for="machineCount">
+              <i class="bi bi-123"></i> No. of Machines <span class="required">*</span>
+            </label>
+            <div class="sgi-input-group">
+              <span class="sgi-input-icon"><i class="bi bi-hash"></i></span>
+              <input type="number" class="sgi-input" id="machineCount" name="machine_count"
+                value="{{ machine_count|default:1 }}" min="1" step="1" required>
+            </div>
           </div>
         </div>
       </div>
@@ -97,26 +104,46 @@
       <div class="sgi-card-body">
         <div class="form-grid">
           <div class="sgi-form-group">
-            <label class="sgi-label" for="customer_name">Customer Name</label>
-            <input type="text" class="sgi-input" id="customer_name" name="customer_name"
-              value="{{ form_data.customer_name|default:'' }}" placeholder="Optional">
+            <label class="sgi-label" for="customer_name">
+              <i class="bi bi-person"></i> Customer Name
+            </label>
+            <div class="sgi-input-group">
+              <span class="sgi-input-icon"><i class="bi bi-person"></i></span>
+              <input type="text" class="sgi-input" id="customer_name" name="customer_name"
+                value="{{ form_data.customer_name|default:'' }}" placeholder="Optional">
+            </div>
           </div>
           <div class="sgi-form-group">
-            <label class="sgi-label" for="dispatch_date">Dispatch Date & Time</label>
-            <input type="datetime-local" class="sgi-input" id="dispatch_date" name="dispatch_date"
-              value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}">
+            <label class="sgi-label" for="dispatch_date">
+              <i class="bi bi-calendar"></i> Dispatch Date & Time
+            </label>
+            <div class="sgi-input-group">
+              <span class="sgi-input-icon"><i class="bi bi-calendar"></i></span>
+              <input type="datetime-local" class="sgi-input" id="dispatch_date" name="dispatch_date"
+                value="{{ now|date:'Y-m-d' }}T{{ now|date:'H:i' }}">
+            </div>
           </div>
         </div>
         <div class="form-grid">
           <div class="sgi-form-group">
-            <label class="sgi-label" for="invoice_reference">Invoice / Reference No.</label>
-            <input type="text" class="sgi-input" id="invoice_reference" name="invoice_reference"
-              value="{{ form_data.invoice_reference|default:'' }}" placeholder="Optional">
+            <label class="sgi-label" for="invoice_reference">
+              <i class="bi bi-receipt"></i> Invoice / Reference No.
+            </label>
+            <div class="sgi-input-group">
+              <span class="sgi-input-icon"><i class="bi bi-receipt"></i></span>
+              <input type="text" class="sgi-input" id="invoice_reference" name="invoice_reference"
+                value="{{ form_data.invoice_reference|default:'' }}" placeholder="Optional">
+            </div>
           </div>
           <div class="sgi-form-group">
-            <label class="sgi-label" for="remarks">Remarks</label>
-            <input type="text" class="sgi-input" id="remarks" name="remarks"
-              value="{{ form_data.remarks|default:'' }}" placeholder="Optional">
+            <label class="sgi-label" for="remarks">
+              <i class="bi bi-chat-text"></i> Remarks
+            </label>
+            <div class="sgi-input-group">
+              <span class="sgi-input-icon"><i class="bi bi-pencil"></i></span>
+              <input type="text" class="sgi-input" id="remarks" name="remarks"
+                value="{{ form_data.remarks|default:'' }}" placeholder="Optional">
+            </div>
           </div>
         </div>
       </div>

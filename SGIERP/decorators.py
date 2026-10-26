@@ -18,7 +18,7 @@ def sgi_login_required(view_func):
 
 
 def sgi_admin_required(view_func):
-    """Requires SGIERP user to be an admin or manager."""
+    """Requires SGIERP user to be an admin."""
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.session.get('sgi_user_id'):
@@ -26,7 +26,7 @@ def sgi_admin_required(view_func):
         try:
             user = User.objects.get(id=request.session['sgi_user_id'], is_active=True)
             profile = user.erp_profile
-            if not profile.is_erp_active or profile.role not in ('admin', 'manager'):
+            if not profile.is_erp_active or profile.role != 'admin':
                 return redirect('sgierp:dashboard')
         except Exception:
             request.session.flush()

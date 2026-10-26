@@ -168,7 +168,7 @@ def machine_detail(request, machine_id):
         if completed:
             from django.db.models import Sum
             result = entry.item.process_entries.filter(
-                process=completed, is_active=True
+                process=completed
             ).aggregate(total=Sum('quantity'))
             avail = result['total'] or 0
         enriched_bom.append({
