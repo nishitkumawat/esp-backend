@@ -13,20 +13,30 @@
       <div class="card-icon"><i class="bi bi-gear-wide-connected"></i></div>
       Machine Master ({{ machines|length }})
     </div>
-    <a href="{% url 'sgierp:machine_create' %}" class="btn-sgi btn-sgi-primary">
-      <i class="bi bi-plus-lg"></i> Add Machine
-    </a>
+    <div class="sgi-card-actions">
+      <div class="sgi-card-actions-primary">
+        <a href="{% url 'sgierp:machine_create' %}" class="btn-sgi btn-sgi-primary">
+          <i class="bi bi-plus-lg"></i> Add Machine
+        </a>
+      </div>
+    </div>
   </div>
 
   <div class="filters-bar">
-    <form method="GET" style="display:flex;gap:10px;align-items:center;">
-      <div class="sgi-input-group" style="border:1.5px solid var(--sgi-border);border-radius:6px;overflow:hidden;">
+    <form method="GET" class="filter-form" style="display:flex;gap:12px;align-items:center;flex-wrap:nowrap;">
+      <div class="sgi-input-group" style="flex:1;min-width:200px;">
         <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
         <input type="text" class="sgi-input" name="q" value="{{ search }}"
-          placeholder="Search code or name…" style="border:none;width:200px;">
+          placeholder="Code or name..." style="border:none;">
       </div>
-      <button type="submit" class="btn-sgi btn-sgi-outline btn-sgi-sm">Filter</button>
-      {% if search %}<a href="{% url 'sgierp:machine_list' %}" class="btn-sgi btn-sgi-outline btn-sgi-sm"><i class="bi bi-x"></i> Clear</a>{% endif %}
+      <button type="submit" class="btn-sgi btn-sgi-primary">
+        <i class="bi bi-funnel"></i> Apply
+      </button>
+      {% if search %}
+      <a href="{% url 'sgierp:machine_list' %}" class="btn-sgi btn-sgi-outline">
+        <i class="bi bi-x"></i> Clear
+      </a>
+      {% endif %}
     </form>
   </div>
 
@@ -70,7 +80,7 @@
             {% endif %}
           </td>
           <td>
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;gap:8px;">
               <a href="{% url 'sgierp:machine_detail' machine.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm" title="View">
                 <i class="bi bi-eye"></i>
               </a>

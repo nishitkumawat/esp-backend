@@ -9,49 +9,55 @@
       <div class="card-icon"><i class="bi bi-boxes"></i></div>
       Inventory ({{ entries|length }} entries)
     </div>
-    <div style="display:flex;gap:10px;">
-      <a href="{% url 'sgierp:item_catalog' %}" class="btn-sgi btn-sgi-outline">
-        <i class="bi bi-box-seam"></i> Catalog
-      </a>
-      <a href="{% url 'sgierp:stock_history' %}" class="btn-sgi btn-sgi-outline">
-        <i class="bi bi-clock-history"></i> History
-      </a>
-      <a href="{% url 'sgierp:item_groups' %}" class="btn-sgi btn-sgi-outline">
-        <i class="bi bi-collection"></i> Groups
-      </a>
-      <a href="{% url 'sgierp:add_stock' %}" class="btn-sgi btn-sgi-primary">
-        <i class="bi bi-plus-lg"></i> Add Stock
-      </a>
+    <div class="sgi-card-actions">
+      <div class="sgi-card-actions-row">
+        <a href="{% url 'sgierp:item_catalog' %}" class="btn-sgi btn-sgi-outline">
+          <i class="bi bi-box-seam"></i> Catalog
+        </a>
+        <a href="{% url 'sgierp:stock_history' %}" class="btn-sgi btn-sgi-outline">
+          <i class="bi bi-clock-history"></i> History
+        </a>
+        <a href="{% url 'sgierp:item_groups' %}" class="btn-sgi btn-sgi-outline">
+          <i class="bi bi-collection"></i> Groups
+        </a>
+      </div>
+      <div class="sgi-card-actions-primary">
+        <a href="{% url 'sgierp:add_stock' %}" class="btn-sgi btn-sgi-primary">
+          <i class="bi bi-plus-lg"></i> Add Stock
+        </a>
+      </div>
     </div>
   </div>
 
   <!-- Filters -->
   <div class="filters-bar">
-    <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <div class="sgi-input-group" style="border:1.5px solid var(--sgi-border);border-radius:6px;overflow:hidden;">
+    <form method="GET" class="filter-form" style="display:flex;gap:12px;align-items:center;flex-wrap:nowrap;">
+      <div class="sgi-input-group" style="flex:1;min-width:200px;">
         <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
-        <input type="text" class="filter-input sgi-input" name="q" value="{{ search }}"
-          placeholder="Search item code or name..." style="border:none;width:200px;">
+        <input type="text" class="sgi-input" name="q" value="{{ search }}"
+          placeholder="Item code or name..." style="border:none;">
       </div>
-      <select class="filter-input" name="process_status" style="min-width:150px;">
+      <select class="sgi-select" name="process_status" style="min-width:140px;">
         <option value="non_completed" {% if process_status == 'non_completed' %}selected{% endif %}>Non-Completed</option>
         <option value="completed" {% if process_status == 'completed' %}selected{% endif %}>Completed</option>
         <option value="all" {% if process_status == 'all' %}selected{% endif %}>All</option>
       </select>
-      <select class="filter-input" name="process" style="min-width:150px;">
+      <select class="sgi-select" name="process" style="min-width:140px;">
         <option value="">All Processes</option>
         {% for p in processes %}
         <option value="{{ p.id }}" {% if process_filter == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
         {% endfor %}
       </select>
-      <select class="filter-input" name="status">
+      <select class="sgi-select" name="status" style="min-width:120px;">
         <option value="">All Status</option>
         <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
         <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
       </select>
-      <button type="submit" class="btn-sgi btn-sgi-outline btn-sgi-sm">Filter</button>
-      {% if search or process_filter or status_filter or process_status != 'non_completed' %}
-      <a href="{% url 'sgierp:inventory' %}" class="btn-sgi btn-sgi-outline btn-sgi-sm">
+      <button type="submit" class="btn-sgi btn-sgi-primary">
+        <i class="bi bi-funnel"></i> Apply
+      </button>
+      {% if search or process_status or process_filter or status_filter %}
+      <a href="{% url 'sgierp:inventory' %}" class="btn-sgi btn-sgi-outline">
         <i class="bi bi-x"></i> Clear
       </a>
       {% endif %}
@@ -64,14 +70,14 @@
     <table class="sgi-table">
       <thead>
         <tr>
-          <th>#ID</th>
+          <th style="width:48px;"></th>
           <th>Item Code</th>
           <th>Item Name</th>
           <th>Process</th>
           <th>Quantity</th>
           <th>Assigned To</th>
-          <th>Last Assigned</th>
-          <th></th>
+          <th>Last Updated</th>
+          <th style="width:140px;"></th>
         </tr>
       </thead>
       <tbody>
@@ -104,7 +110,7 @@
             {% endif %}
           </td>
           <td>
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;gap:8px;">
               <a href="{% url 'sgierp:item_detail' entry.item.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm" title="View">
                 <i class="bi bi-eye"></i>
               </a>

@@ -13,29 +13,37 @@
       <div class="card-icon"><i class="bi bi-truck"></i></div>
       All Dispatches ({{ page_obj.paginator.count }})
     </div>
-    <a href="{% url 'sgierp:dispatch_create' %}" class="btn-sgi btn-sgi-primary">
-      <i class="bi bi-plus-lg"></i> New Dispatch
-    </a>
+    <div class="sgi-card-actions">
+      <div class="sgi-card-actions-primary">
+        <a href="{% url 'sgierp:dispatch_create' %}" class="btn-sgi btn-sgi-primary">
+          <i class="bi bi-plus-lg"></i> New Dispatch
+        </a>
+      </div>
+    </div>
   </div>
 
   <div class="filters-bar">
-    <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <div class="sgi-input-group" style="border:1.5px solid var(--sgi-border);border-radius:6px;overflow:hidden;">
+    <form method="GET" class="filter-form" style="display:flex;gap:12px;align-items:center;flex-wrap:nowrap;">
+      <div class="sgi-input-group" style="flex:1;min-width:200px;">
         <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
         <input type="text" class="sgi-input" name="q" value="{{ search }}"
-          placeholder="Customer, machine, invoice…" style="border:none;width:200px;">
+          placeholder="Customer, machine, invoice..." style="border:none;">
       </div>
-      <select class="filter-input" name="machine">
+      <select class="sgi-select" name="machine" style="min-width:160px;">
         <option value="">All Machines</option>
         {% for m in machines %}
         <option value="{{ m.id }}" {% if machine_filter == m.id|stringformat:"s" %}selected{% endif %}>{{ m.code }} — {{ m.name }}</option>
         {% endfor %}
       </select>
-      <input type="date" class="filter-input" name="date_from" value="{{ date_from }}" title="From date">
-      <input type="date" class="filter-input" name="date_to" value="{{ date_to }}" title="To date">
-      <button type="submit" class="btn-sgi btn-sgi-outline btn-sgi-sm">Filter</button>
+      <input type="date" class="sgi-input" name="date_from" value="{{ date_from }}" style="min-width:140px;">
+      <input type="date" class="sgi-input" name="date_to" value="{{ date_to }}" style="min-width:140px;">
+      <button type="submit" class="btn-sgi btn-sgi-primary">
+        <i class="bi bi-funnel"></i> Apply
+      </button>
       {% if search or machine_filter or date_from or date_to %}
-      <a href="{% url 'sgierp:dispatch_list' %}" class="btn-sgi btn-sgi-outline btn-sgi-sm"><i class="bi bi-x"></i> Clear</a>
+      <a href="{% url 'sgierp:dispatch_list' %}" class="btn-sgi btn-sgi-outline">
+        <i class="bi bi-x"></i> Clear
+      </a>
       {% endif %}
     </form>
   </div>

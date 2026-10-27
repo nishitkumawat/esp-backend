@@ -20,7 +20,7 @@
 {% else %}
 
 <!-- Summary bar -->
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px;">
   <div class="sgi-card">
     <div class="sgi-card-body" style="text-align:center;padding:18px;">
       <div style="font-size:28px;font-weight:900;color:var(--sgi-success);">{{ total_items }}</div>
@@ -33,12 +33,12 @@
       <div style="font-size:12px;color:var(--sgi-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">Total Finished Units</div>
     </div>
   </div>
-  <div class="sgi-card">
+  <!-- <div class="sgi-card">
     <div class="sgi-card-body" style="text-align:center;padding:18px;">
       <div style="font-size:28px;font-weight:900;color:var(--sgi-orange);">{{ completed_process.name }}</div>
       <div style="font-size:12px;color:var(--sgi-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px;">Process Stage</div>
     </div>
-  </div>
+  </div> -->
 </div>
 
 <div class="sgi-card">
@@ -85,7 +85,7 @@
             <span style="color:var(--sgi-text-muted);font-size:12px;"> {{ entry.item.unit }}</span>
           </td>
           <td>
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;gap:8px;">
               <a href="{% url 'sgierp:item_detail' entry.item.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm" title="View Item">
                 <i class="bi bi-eye"></i>
               </a>

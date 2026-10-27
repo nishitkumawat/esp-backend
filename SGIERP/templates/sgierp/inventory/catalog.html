@@ -9,35 +9,39 @@
       <div class="card-icon"><i class="bi bi-box-seam"></i></div>
       Item Catalog ({{ items|length }} items)
     </div>
-    <div style="display:flex;gap:10px;">
-      <a href="{% url 'sgierp:item_create' %}" class="btn-sgi btn-sgi-primary">
-        <i class="bi bi-plus-lg"></i> Add Item
-      </a>
+    <div class="sgi-card-actions">
+      <div class="sgi-card-actions-primary">
+        <a href="{% url 'sgierp:item_create' %}" class="btn-sgi btn-sgi-primary">
+          <i class="bi bi-plus-lg"></i> Add Item
+        </a>
+      </div>
     </div>
   </div>
 
   <!-- Filters -->
   <div class="filters-bar">
-    <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <div class="sgi-input-group" style="border:1.5px solid var(--sgi-border);border-radius:6px;overflow:hidden;">
+    <form method="GET" class="filter-form" style="display:flex;gap:12px;align-items:center;flex-wrap:nowrap;">
+      <div class="sgi-input-group" style="flex:1;min-width:200px;">
         <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
-        <input type="text" class="filter-input sgi-input" name="q" value="{{ search }}"
-          placeholder="Search code or name..." style="border:none;width:200px;">
+        <input type="text" class="sgi-input" name="q" value="{{ search }}"
+          placeholder="Code or name..." style="border:none;">
       </div>
-      <select class="filter-input" name="category" style="min-width:150px;">
+      <select class="sgi-select" name="category" style="min-width:140px;">
         <option value="">All Categories</option>
         {% for cat in categories %}
         <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
         {% endfor %}
       </select>
-      <select class="filter-input" name="status">
+      <select class="sgi-select" name="status" style="min-width:120px;">
         <option value="">All Status</option>
         <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
         <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
       </select>
-      <button type="submit" class="btn-sgi btn-sgi-outline btn-sgi-sm">Filter</button>
+      <button type="submit" class="btn-sgi btn-sgi-primary">
+        <i class="bi bi-funnel"></i> Apply
+      </button>
       {% if search or category_filter or status_filter %}
-      <a href="{% url 'sgierp:item_catalog' %}" class="btn-sgi btn-sgi-outline btn-sgi-sm">
+      <a href="{% url 'sgierp:item_catalog' %}" class="btn-sgi btn-sgi-outline">
         <i class="bi bi-x"></i> Clear
       </a>
       {% endif %}
@@ -88,7 +92,7 @@
             {% endif %}
           </td>
           <td>
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;gap:8px;">
               <a href="{% url 'sgierp:item_detail' item.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm" title="View">
                 <i class="bi bi-eye"></i>
               </a>

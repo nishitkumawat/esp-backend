@@ -3,7 +3,7 @@
 {% block page_title %}Settings{% endblock %}
 
 {% block content %}
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+<div style="display:flex;flex-direction:column;gap:20px;">
 
   <!-- Processes -->
   <div class="sgi-card">
@@ -12,9 +12,11 @@
         <div class="card-icon"><i class="bi bi-diagram-3"></i></div>
         Manufacturing Processes
       </div>
-      <a href="{% url 'sgierp:process_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
-        <i class="bi bi-plus-lg"></i> Add
-      </a>
+      <div class="sgi-card-actions">
+        <a href="{% url 'sgierp:process_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
+          <i class="bi bi-plus-lg"></i> Add
+        </a>
+      </div>
     </div>
     <div class="sgi-table-wrap">
       {% if processes %}
@@ -57,7 +59,7 @@
               {% endif %}
             </td>
             <td>
-              <div style="display:flex;gap:6px;">
+              <div style="display:flex;gap:8px;">
                 <a href="{% url 'sgierp:process_edit' p.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm">
                   <i class="bi bi-pencil"></i>
                 </a>
@@ -86,9 +88,11 @@
         <div class="card-icon"><i class="bi bi-person-badge"></i></div>
         Assignees
       </div>
-      <a href="{% url 'sgierp:assignee_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
-        <i class="bi bi-plus-lg"></i> Add Assignee
-      </a>
+      <div class="sgi-card-actions">
+        <a href="{% url 'sgierp:assignee_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
+          <i class="bi bi-plus-lg"></i> Add Assignee
+        </a>
+      </div>
     </div>
     <div class="sgi-table-wrap">
       {% if assignees %}
@@ -129,7 +133,7 @@
               {% endif %}
             </td>
             <td>
-              <div style="display:flex;gap:6px;">
+              <div style="display:flex;gap:8px;">
                 <a href="{% url 'sgierp:assignee_edit' a.id %}" class="btn-sgi btn-sgi-outline btn-sgi-icon btn-sgi-sm">
                   <i class="bi bi-pencil"></i>
                 </a>
@@ -158,9 +162,11 @@
         <div class="card-icon"><i class="bi bi-people"></i></div>
         ERP Users
       </div>
-      <a href="{% url 'sgierp:user_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
-        <i class="bi bi-plus-lg"></i> Add User
-      </a>
+      <div class="sgi-card-actions">
+        <a href="{% url 'sgierp:user_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
+          <i class="bi bi-plus-lg"></i> Add User
+        </a>
+      </div>
     </div>
     <div class="sgi-table-wrap">
       {% if erp_users %}

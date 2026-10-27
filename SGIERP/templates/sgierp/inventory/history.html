@@ -13,22 +13,24 @@
 
   <!-- Filters -->
   <div class="filters-bar">
-    <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <div class="sgi-input-group" style="border:1.5px solid var(--sgi-border);border-radius:6px;overflow:hidden;">
+    <form method="GET" class="filter-form" style="display:flex;gap:12px;align-items:center;flex-wrap:nowrap;">
+      <div class="sgi-input-group" style="flex:1;min-width:200px;">
         <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
-        <input type="text" class="filter-input sgi-input" name="q" value="{{ search }}"
-          placeholder="Search item code or name..." style="border:none;width:200px;">
+        <input type="text" class="sgi-input" name="q" value="{{ search }}"
+          placeholder="Item code or name..." style="border:none;">
       </div>
-      <select class="filter-input" name="type" style="min-width:150px;">
+      <select class="sgi-select" name="type" style="min-width:160px;">
         <option value="">All Types</option>
         <option value="initial" {% if movement_type == 'initial' %}selected{% endif %}>Initial Stock</option>
         <option value="move" {% if movement_type == 'move' %}selected{% endif %}>Stock Movement</option>
         <option value="dispatch" {% if movement_type == 'dispatch' %}selected{% endif %}>Dispatch</option>
         <option value="adjustment" {% if movement_type == 'adjustment' %}selected{% endif %}>Adjustment</option>
       </select>
-      <button type="submit" class="btn-sgi btn-sgi-outline btn-sgi-sm">Filter</button>
+      <button type="submit" class="btn-sgi btn-sgi-primary">
+        <i class="bi bi-funnel"></i> Apply
+      </button>
       {% if search or movement_type %}
-      <a href="{% url 'sgierp:stock_history' %}" class="btn-sgi btn-sgi-outline btn-sgi-sm">
+      <a href="{% url 'sgierp:stock_history' %}" class="btn-sgi btn-sgi-outline">
         <i class="bi bi-x"></i> Clear
       </a>
       {% endif %}
