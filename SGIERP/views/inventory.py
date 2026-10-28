@@ -387,6 +387,7 @@ def stock_move_view(request):
 
     selected_item = None
     selected_source_process = None
+    selected_stock_entry = None
 
     # Get selected item and process from query params
     item_id = request.GET.get('item')
@@ -395,6 +396,15 @@ def stock_move_view(request):
     if item_id:
         try:
             selected_item = Item.objects.get(id=int(item_id))
+            # Get the first stock entry for this item (excluding completed process)
+            stock_entry = selected_item.process_entries.filter(
+                quantity__gt=0
+            ).exclude(
+                process__is_completed_process=True
+            ).select_related('process').first()
+            if stock_entry:
+                selected_stock_entry = stock_entry
+                selected_source_process = stock_entry.process
         except (ValueError, Item.DoesNotExist):
             pass
 
@@ -453,6 +463,7 @@ def stock_move_view(request):
                 'assignees': assignees,
                 'selected_item': selected_item,
                 'selected_source_process': selected_source_process,
+                'selected_stock_entry': selected_stock_entry,
                 'page_title': 'Stock Movement',
             })
 
@@ -468,6 +479,7 @@ def stock_move_view(request):
                 'assignees': assignees,
                 'selected_item': selected_item,
                 'selected_source_process': selected_source_process,
+                'selected_stock_entry': selected_stock_entry,
                 'page_title': 'Stock Movement',
             })
 
@@ -481,6 +493,7 @@ def stock_move_view(request):
                 'assignees': assignees,
                 'selected_item': selected_item,
                 'selected_source_process': selected_source_process,
+                'selected_stock_entry': selected_stock_entry,
                 'page_title': 'Stock Movement',
             })
 
@@ -544,6 +557,7 @@ def stock_move_view(request):
         'assignees': assignees,
         'selected_item': selected_item,
         'selected_source_process': selected_source_process,
+        'selected_stock_entry': selected_stock_entry,
         'completed_process': completed,
         'page_title': 'Stock Movement',
     })

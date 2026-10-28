@@ -47,20 +47,27 @@
       <div class="card-icon"><i class="bi bi-check-circle-fill"></i></div>
       Finished Goods
     </div>
-    <form method="GET" style="display:flex;gap:8px;align-items:center;">
-      <div class="sgi-input-group" style="border:1.5px solid var(--sgi-border);border-radius:6px;overflow:hidden;">
-        <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
-        <input type="text" class="sgi-input" name="q" value="{{ search }}"
-          placeholder="Search items…" style="border:none;width:180px;">
+    <div class="sgi-card-actions">
+      <div class="sgi-card-actions-row">
+        <button onclick="exportTableToExcel('completedTable', 'completed_stock')" class="btn-sgi btn-sgi-outline">
+          <i class="bi bi-download"></i> Export
+        </button>
+        <form method="GET" style="display:flex;gap:8px;align-items:center;">
+          <div class="sgi-input-group" style="border:1.5px solid var(--sgi-border);border-radius:6px;overflow:hidden;">
+            <span class="sgi-input-icon"><i class="bi bi-search"></i></span>
+            <input type="text" class="sgi-input" name="q" value="{{ search }}"
+              placeholder="Search items…" style="border:none;width:180px;">
+          </div>
+          <button type="submit" class="btn-sgi btn-sgi-outline btn-sgi-sm">Search</button>
+          {% if search %}<a href="{% url 'sgierp:completed_stock' %}" class="btn-sgi btn-sgi-outline btn-sgi-sm"><i class="bi bi-x"></i></a>{% endif %}
+        </form>
       </div>
-      <button type="submit" class="btn-sgi btn-sgi-outline btn-sgi-sm">Search</button>
-      {% if search %}<a href="{% url 'sgierp:completed_stock' %}" class="btn-sgi btn-sgi-outline btn-sgi-sm"><i class="bi bi-x"></i></a>{% endif %}
-    </form>
+    </div>
   </div>
 
   <div class="sgi-table-wrap">
     {% if completed_items %}
-    <table class="sgi-table">
+    <table class="sgi-table" id="completedTable">
       <thead>
         <tr>
           <th>Item</th>

@@ -62,10 +62,12 @@ urlpatterns = [
 
     # ---- Admin / Settings ----
     path('settings/', settings_view, name='settings'),
+    path('settings/processes/', settings_view, name='settings_processes'),
+    path('settings/assignees/', settings_view, name='settings_assignees'),
+    path('settings/users/', user_list, name='settings_users'),
     path('settings/process/add/', process_create_edit, name='process_create'),
     path('settings/process/<int:process_id>/edit/', process_create_edit, name='process_edit'),
     path('settings/process/<int:process_id>/delete/', process_delete, name='process_delete'),
-    path('settings/users/', user_list, name='user_list'),
     path('settings/users/add/', user_create_edit, name='user_create'),
     path('settings/users/<int:user_id>/edit/', user_create_edit, name='user_edit'),
     path('settings/assignee/add/', assignee_create_edit, name='assignee_create'),

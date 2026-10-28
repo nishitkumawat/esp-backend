@@ -10,6 +10,11 @@
       Item Catalog ({{ items|length }} items)
     </div>
     <div class="sgi-card-actions">
+      <div class="sgi-card-actions-row">
+        <button onclick="exportTableToExcel('catalogTable', 'item_catalog')" class="btn-sgi btn-sgi-outline">
+          <i class="bi bi-download"></i> Export
+        </button>
+      </div>
       <div class="sgi-card-actions-primary">
         <a href="{% url 'sgierp:item_create' %}" class="btn-sgi btn-sgi-primary">
           <i class="bi bi-plus-lg"></i> Add Item
@@ -51,7 +56,7 @@
   <!-- Table -->
   <div class="sgi-table-wrap">
     {% if items %}
-    <table class="sgi-table">
+    <table class="sgi-table" id="catalogTable">
       <thead>
         <tr>
           <th>Code</th>

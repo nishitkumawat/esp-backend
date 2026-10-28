@@ -14,6 +14,11 @@
       Machine Master ({{ machines|length }})
     </div>
     <div class="sgi-card-actions">
+      <div class="sgi-card-actions-row">
+        <button onclick="exportTableToExcel('machineTable', 'machines')" class="btn-sgi btn-sgi-outline">
+          <i class="bi bi-download"></i> Export
+        </button>
+      </div>
       <div class="sgi-card-actions-primary">
         <a href="{% url 'sgierp:machine_create' %}" class="btn-sgi btn-sgi-primary">
           <i class="bi bi-plus-lg"></i> Add Machine
@@ -42,7 +47,7 @@
 
   <div class="sgi-table-wrap">
     {% if machines %}
-    <table class="sgi-table">
+    <table class="sgi-table" id="machineTable">
       <thead>
         <tr>
           <th style="width:48px;"></th>

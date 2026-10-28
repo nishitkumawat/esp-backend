@@ -20,13 +20,29 @@ def settings_view(request):
 
     assignees = Assignee.objects.all().order_by('name')
 
-    context = {
-        'processes': processes,
-        'erp_users': erp_users,
-        'assignees': assignees,
-        'page_title': 'Settings',
-    }
-    return render(request, 'sgierp/settings/index.html', context)
+    # Check which settings page is being requested
+    url_name = request.resolver_match.url_name
+
+    if url_name == 'settings_processes':
+        template = 'sgierp/settings/processes.html'
+        context = {
+            'processes': processes,
+        }
+    elif url_name == 'settings_assignees':
+        template = 'sgierp/settings/assignees.html'
+        context = {
+            'assignees': assignees,
+        }
+    else:
+        # Landing page
+        template = 'sgierp/settings/landing.html'
+        context = {
+            'processes': processes,
+            'erp_users': erp_users,
+            'assignees': assignees,
+        }
+
+    return render(request, template, context)
 
 
 @sgi_login_required
@@ -63,6 +79,10 @@ def process_create_edit(request, process_id=None):
         if errors:
             for e in errors:
                 messages.error(request, e)
+            return render(request, 'sgierp/settings/process_form.html', {
+                'process': process,
+                'page_title': f'Edit {process.name}' if process else 'Add Process',
+            })
         else:
             if process:
                 process.name = name
@@ -83,7 +103,7 @@ def process_create_edit(request, process_id=None):
                     created_by=user
                 )
                 messages.success(request, f'Process "{name}" created successfully.')
-            return redirect('sgierp:settings')
+            return redirect('sgierp:settings_processes')
 
     context = {
         'process': process,
@@ -101,7 +121,7 @@ def process_delete(request, process_id):
     stock_count = process.item_entries.filter(quantity__gt=0).count()
     if stock_count > 0:
         messages.error(request, f'Cannot delete process "{process.name}" - it has {stock_count} active stock entries.')
-        return redirect('sgierp:settings')
+        return redirect('sgierp:settings_processes')
 
     # Delete stock history records referencing this process
     from SGIERP.models import StockHistory
@@ -116,7 +136,7 @@ def process_delete(request, process_id):
         messages.success(request, f'Process "{process.name}" and {history_count} history record(s) deleted successfully.')
     else:
         messages.success(request, f'Process "{process.name}" deleted successfully.')
-    return redirect('sgierp:settings')
+    return redirect('sgierp:settings_processes')
 
 
 @sgi_login_required
@@ -175,7 +195,7 @@ def user_create_edit(request, user_id=None):
                 messages.error(request, e)
             return render(request, 'sgierp/settings/user_form.html', {
                 'target_user': target_user, 'profile': profile,
-                'form_data': request.POST, 'page_title': 'Edit User' if target_user else 'New User',
+                'page_title': 'Edit User' if target_user else 'New User',
             })
 
         with transaction.atomic():
@@ -203,21 +223,11 @@ def user_create_edit(request, user_id=None):
             profile.save()
 
         messages.success(request, f'User {username} saved.')
-        return redirect('sgierp:user_list')
+        return redirect('sgierp:settings_users')
 
     return render(request, 'sgierp/settings/user_form.html', {
         'target_user': target_user,
         'profile': profile,
-        'form_data': {
-            'username': target_user.username if target_user else '',
-            'email': target_user.email if target_user else '',
-            'first_name': target_user.first_name if target_user else '',
-            'last_name': target_user.last_name if target_user else '',
-            'role': profile.role if profile else 'operator',
-            'department': profile.department if profile else '',
-            'phone': profile.phone if profile else '',
-            'is_erp_active': profile.is_erp_active if profile else True,
-        },
         'roles': ERPUserProfile.ROLE_CHOICES,
         'page_title': 'Edit User' if target_user else 'New User',
     })
@@ -245,7 +255,6 @@ def assignee_create_edit(request, assignee_id=None):
                 messages.error(request, e)
             return render(request, 'sgierp/settings/assignee_form.html', {
                 'assignee': assignee,
-                'form_data': request.POST,
                 'page_title': 'Edit Assignee' if assignee else 'New Assignee',
             })
 
@@ -260,16 +269,10 @@ def assignee_create_edit(request, assignee_id=None):
         assignee.save()
 
         messages.success(request, f'Assignee "{name}" saved.')
-        return redirect('sgierp:settings')
+        return redirect('sgierp:settings_assignees')
 
     return render(request, 'sgierp/settings/assignee_form.html', {
         'assignee': assignee,
-        'form_data': {
-            'name': assignee.name if assignee else '',
-            'phone': assignee.phone if assignee else '',
-            'department': assignee.department if assignee else '',
-            'is_active': assignee.is_active if assignee else True,
-        },
         'page_title': 'Edit Assignee' if assignee else 'New Assignee',
     })
 
@@ -283,8 +286,8 @@ def assignee_delete(request, assignee_id):
     stock_count = assignee.assigned_items.filter(quantity__gt=0).count()
     if stock_count > 0:
         messages.error(request, f'Cannot delete assignee "{assignee.name}" - they have {stock_count} stock entries assigned.')
-        return redirect('sgierp:settings')
+        return redirect('sgierp:settings_assignees')
 
     assignee.delete()
     messages.success(request, f'Assignee "{assignee.name}" deleted successfully.')
-    return redirect('sgierp:settings')
+    return redirect('sgierp:settings_assignees')

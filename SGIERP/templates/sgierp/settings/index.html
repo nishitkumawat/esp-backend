@@ -13,6 +13,11 @@
         Manufacturing Processes
       </div>
       <div class="sgi-card-actions">
+        <div class="sgi-card-actions-row">
+          <button onclick="exportTableToExcel('processesTable', 'processes')" class="btn-sgi btn-sgi-outline btn-sgi-sm">
+            <i class="bi bi-download"></i> Export
+          </button>
+        </div>
         <a href="{% url 'sgierp:process_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
           <i class="bi bi-plus-lg"></i> Add
         </a>
@@ -20,7 +25,7 @@
     </div>
     <div class="sgi-table-wrap">
       {% if processes %}
-      <table class="sgi-table">
+      <table class="sgi-table" id="processesTable">
         <thead>
           <tr>
             <th>Order</th>
@@ -89,6 +94,11 @@
         Assignees
       </div>
       <div class="sgi-card-actions">
+        <div class="sgi-card-actions-row">
+          <button onclick="exportTableToExcel('assigneesTable', 'assignees')" class="btn-sgi btn-sgi-outline btn-sgi-sm">
+            <i class="bi bi-download"></i> Export
+          </button>
+        </div>
         <a href="{% url 'sgierp:assignee_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
           <i class="bi bi-plus-lg"></i> Add Assignee
         </a>
@@ -96,7 +106,7 @@
     </div>
     <div class="sgi-table-wrap">
       {% if assignees %}
-      <table class="sgi-table">
+      <table class="sgi-table" id="assigneesTable">
         <thead>
           <tr>
             <th>Name</th>
@@ -163,6 +173,11 @@
         ERP Users
       </div>
       <div class="sgi-card-actions">
+        <div class="sgi-card-actions-row">
+          <button onclick="exportTableToExcel('usersTable', 'erp_users')" class="btn-sgi btn-sgi-outline btn-sgi-sm">
+            <i class="bi bi-download"></i> Export
+          </button>
+        </div>
         <a href="{% url 'sgierp:user_create' %}" class="btn-sgi btn-sgi-primary btn-sgi-sm">
           <i class="bi bi-plus-lg"></i> Add User
         </a>
@@ -170,7 +185,7 @@
     </div>
     <div class="sgi-table-wrap">
       {% if erp_users %}
-      <table class="sgi-table">
+      <table class="sgi-table" id="usersTable">
         <thead>
           <tr>
             <th>User</th>

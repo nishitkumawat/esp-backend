@@ -44,6 +44,7 @@
                 <h3>{{ p_data.process.name }}</h3>
                 <span class="badge">{{ p_data.total|floatformat:2 }} total</span>
               </div>
+              <div class="sgi-table-wrap">
               <table class="sgi-table">
                 <thead>
                   <tr>
@@ -80,6 +81,7 @@
                   {% endfor %}
                 </tbody>
               </table>
+              </div>
             </div>
             {% endfor %}
           </div>
@@ -91,6 +93,7 @@
               <h3>{{ p_data.process.name }}</h3>
               <span class="badge">{{ p_data.total|floatformat:2 }} total</span>
             </div>
+            <div class="sgi-table-wrap">
             <table class="sgi-table">
               <thead>
                 <tr>
@@ -127,6 +130,7 @@
                 {% endfor %}
               </tbody>
             </table>
+            </div>
           </div>
           {% endfor %}
         </div>

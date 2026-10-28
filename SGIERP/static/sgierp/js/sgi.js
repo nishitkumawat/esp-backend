@@ -243,3 +243,32 @@ function filterBatchSelector(value) {
     row.style.display = text.includes(value.toLowerCase()) ? '' : 'none';
   });
 }
+
+// ---- Export Table to Excel (CSV) ----
+function exportTableToExcel(tableId, filename) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  let csv = [];
+  const rows = table.querySelectorAll('tr');
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = [], cols = rows[i].querySelectorAll('td, th');
+
+    for (let j = 0; j < cols.length; j++) {
+      let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/"/g, '""');
+      data = '"' + data + '"';
+      row.push(data);
+    }
+    csv.push(row.join(','));
+  }
+
+  const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+  const downloadLink = document.createElement('a');
+  downloadLink.download = filename + '.csv';
+  downloadLink.href = window.URL.createObjectURL(csvFile);
+  downloadLink.style.display = 'none';
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+}

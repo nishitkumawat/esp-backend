@@ -47,11 +47,26 @@ class Item(models.Model):
     """Master record for each inventory item type."""
     UNIT_CHOICES = [
         ('pcs', 'Pieces'),
-        ('sets', 'Sets'),
         ('kg', 'Kilograms'),
         ('m', 'Meters'),
-        ('nos', 'Numbers'),
+        ('mtr', 'Meters'),
+        ('mt', 'Metric Ton'),
         ('lt', 'Litres'),
+        ('l', 'Liters'),
+        ('ml', 'Milliliters'),
+        ('gm', 'Grams'),
+        ('ton', 'Ton'),
+        ('nos', 'Numbers'),
+        ('sets', 'Sets'),
+        ('boxes', 'Boxes'),
+        ('packs', 'Packs'),
+        ('rolls', 'Rolls'),
+        ('sqft', 'Square Feet'),
+        ('sqm', 'Square Meters'),
+        ('bundle', 'Bundle'),
+        ('bag', 'Bag'),
+        ('dozen', 'Dozen'),
+        ('pair', 'Pair'),
     ]
 
     code = models.CharField(max_length=50, unique=True)
